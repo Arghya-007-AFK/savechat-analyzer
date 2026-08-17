@@ -1,634 +1,1695 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Zoom Chat Analyser — Be10x Ops</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zoom Savechat Analyzer — Be10x</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%236366f1'/%3E%3Cstop offset='100%25' stop-color='%2322d3ee'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='44' font-family='Arial,sans-serif' font-size='34' font-weight='700' fill='white' text-anchor='middle'%3EZ%2B%3C/text%3E%3C/svg%3E"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-  :root {
-    --bg:#080a0e;--surface:#10131a;--surface2:#181c26;--border:#1e2435;
-    --teal:#00e5b4;--teal-dim:rgba(0,229,180,0.08);--teal-mid:rgba(0,229,180,0.18);
-    --amber:#f5a623;--red:#ff4d6d;--blue:#4d9ef5;--text:#dde4f0;
-    --muted:#556070;--muted2:#3a4255;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  ::selection{background:var(--teal-mid);color:var(--teal)}
-  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;
-    padding:48px 20px 80px;
-    background-image:radial-gradient(ellipse at 20% 10%,rgba(0,229,180,0.04) 0%,transparent 60%),
-                     radial-gradient(ellipse at 80% 80%,rgba(77,158,245,0.03) 0%,transparent 60%)}
-  .header{text-align:center;margin-bottom:52px}
-  .badge{display:inline-flex;align-items:center;gap:8px;background:var(--teal-dim);
-    border:1px solid rgba(0,229,180,0.25);color:var(--teal);font-size:10px;padding:5px 14px;
-    border-radius:20px;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:20px;font-weight:500}
-  .badge-dot{width:6px;height:6px;background:var(--teal);border-radius:50%;animation:pulse 2s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-  h1{font-family:'Syne',sans-serif;font-size:clamp(28px,4vw,42px);font-weight:800;color:#fff;
-    letter-spacing:-1.5px;line-height:1.1;margin-bottom:10px}
-  h1 .accent{color:var(--teal)}
-  .subtitle{color:var(--muted);font-size:13px;letter-spacing:0.3px;line-height:1.6}
-  .upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:820px;margin:0 auto 28px}
-  @media(max-width:600px){.upload-grid{grid-template-columns:1fr}}
-  .upload-zone{border:1.5px dashed var(--border);border-radius:14px;padding:32px 24px 28px;
-    text-align:center;cursor:pointer;transition:all 0.22s;background:var(--surface);position:relative;overflow:hidden}
-  .upload-zone::before{content:'';position:absolute;inset:0;background:var(--teal-dim);opacity:0;transition:opacity 0.22s}
-  .upload-zone:hover::before,.upload-zone.drag::before{opacity:1}
-  .upload-zone:hover,.upload-zone.drag{border-color:var(--teal);border-style:solid}
-  .upload-zone.loaded{border-color:var(--teal);border-style:solid;background:linear-gradient(135deg,rgba(0,229,180,0.06),var(--surface))}
-  .upload-zone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-  .uz-icon{font-size:30px;margin-bottom:14px;position:relative;z-index:1}
-  .uz-type{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#fff;margin-bottom:5px;position:relative;z-index:1}
-  .uz-hint{font-size:11px;color:var(--muted);position:relative;z-index:1}
-  .uz-badge{display:inline-block;background:rgba(255,77,109,0.15);border:1px solid rgba(255,77,109,0.3);
-    color:#ff4d6d;font-size:10px;padding:2px 8px;border-radius:10px;letter-spacing:1px;
-    text-transform:uppercase;margin-top:8px;position:relative;z-index:1}
-  .uz-file{font-size:11px;color:var(--teal);margin-top:10px;font-weight:500;position:relative;z-index:1;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .uz-check{display:none;color:var(--teal);position:relative;z-index:1;margin-top:4px;font-size:18px}
-  .upload-zone.loaded .uz-check{display:block}
-  .actions{max-width:820px;margin:0 auto 32px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center}
-  .btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:10px;padding:13px 32px;
-    font-family:'Syne',sans-serif;font-size:14px;font-weight:700;letter-spacing:0.5px;cursor:pointer;transition:all 0.18s;text-transform:uppercase}
-  .btn-primary{background:var(--teal);color:#080a0e}
-  .btn-primary:hover{background:#00c9a0;transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,229,180,0.25)}
-  .btn-primary:disabled{background:var(--muted2);color:var(--muted);cursor:not-allowed;transform:none;box-shadow:none}
-  .btn-dl{background:var(--amber);color:#080a0e;display:none}
-  .btn-dl:hover{background:#e09020;transform:translateY(-1px)}
-  .btn-reset{background:transparent;border:1.5px solid var(--border);color:var(--muted);display:none}
-  .btn-reset:hover{border-color:var(--muted);color:var(--text)}
-  .progress-wrap{max-width:820px;margin:0 auto 28px;display:none;animation:fadeIn 0.3s ease}
-  .progress-wrap.visible{display:block}
-  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-  .prog-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-  .prog-label{font-size:12px;color:var(--muted);font-style:italic}
-  .prog-pct{font-size:13px;font-weight:500;color:var(--teal)}
-  .prog-bar-bg{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-bottom:16px}
-  .prog-bar-fill{height:100%;background:linear-gradient(90deg,var(--teal),#4dffc7);border-radius:2px;transition:width 0.4s ease;width:0%}
-  .terminal{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
-  .terminal-header{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}
-  .dot{width:10px;height:10px;border-radius:50%}
-  .dot-r{background:#ff5f57}.dot-y{background:#ffbd2e}.dot-g{background:#28c941}
-  .terminal-title{font-size:11px;color:var(--muted);margin-left:4px;letter-spacing:1px}
-  .log{padding:14px 16px;height:200px;overflow-y:auto;font-size:11.5px;line-height:2;color:var(--muted)}
-  .log::-webkit-scrollbar{width:4px}
-  .log::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:2px}
-  .log-line{display:block}.log-line.ok{color:var(--teal)}.log-line.warn{color:var(--amber)}
-  .log-line.err{color:var(--red)}.log-line.info{color:var(--blue)}
-  .stats-grid{display:none;grid-template-columns:repeat(4,1fr);gap:14px;max-width:820px;margin:0 auto 28px}
-  .stats-grid.visible{display:grid;animation:fadeIn 0.4s ease}
-  @media(max-width:640px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
-  .stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 16px;text-align:center}
-  .stat-v{font-family:'Syne',sans-serif;font-size:clamp(22px,3vw,30px);font-weight:800;color:var(--teal)}
-  .stat-l{font-size:10px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:1.5px}
-  .cat-wrap{display:none;max-width:820px;margin:0 auto 28px;background:var(--surface);
-    border:1px solid var(--border);border-radius:14px;overflow:hidden;animation:fadeIn 0.4s ease}
-  .cat-wrap.visible{display:block}
-  .cat-header{padding:14px 20px;background:var(--surface2);border-bottom:1px solid var(--border);
-    font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:2px}
-  .cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0}
-  .cat-item{padding:10px 20px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);
-    display:flex;justify-content:space-between;align-items:center}
-  .cat-name{font-size:11px;color:var(--text)}.cat-count{font-size:11px;font-weight:500;color:var(--teal)}
-  .success-banner{display:none;max-width:820px;margin:0 auto 24px;
-    background:linear-gradient(135deg,rgba(0,229,180,0.1),rgba(0,229,180,0.05));
-    border:1px solid rgba(0,229,180,0.3);border-radius:12px;padding:16px 20px;text-align:center;animation:fadeIn 0.4s ease}
-  .success-banner.visible{display:block}
-  .success-banner p{color:var(--teal);font-size:13px;font-weight:500}
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080c14;--bg2:#0d1220;--surface:#111827;--surface2:#1a2235;--surface3:#1f2a40;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);--border3:rgba(255,255,255,0.18);
+  --text:#f0f4ff;--text2:#8896b0;--text3:#4a5568;
+  --indigo:#818cf8;--indigo2:#6366f1;--cyan:#22d3ee;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--pink:#ec4899;--violet:#a78bfa;
+  --font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace;
+  --r:8px;--r2:12px;--r3:16px;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;min-height:100vh;overflow-x:hidden;}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px}
+
+/* HEADER */
+.header{background:linear-gradient(135deg,#0d1527 0%,#111827 100%);border-bottom:1px solid var(--border2);padding:0 24px;height:62px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;}
+.logo-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;box-shadow:0 0 20px rgba(99,102,241,0.4);flex-shrink:0;}
+.header-brand{display:flex;flex-direction:column;gap:1px;}
+.header-title{font-size:15px;font-weight:700;letter-spacing:-0.3px;background:linear-gradient(90deg,#f0f4ff,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.header-sub{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.hdr-pill{background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.28);color:var(--indigo);font-size:11px;padding:4px 12px;border-radius:20px;font-family:var(--mono);}
+.hdr-status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 62px);}
+
+/* SIDEBAR */
+.sidebar{background:linear-gradient(180deg,#0d1220,#080c14);border-right:1px solid var(--border);padding:20px 12px;display:flex;flex-direction:column;gap:2px;position:sticky;top:62px;height:calc(100vh - 62px);overflow-y:auto;}
+.nav-label{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;padding:0 8px;margin:16px 0 8px;}
+.nav-label:first-child{margin-top:0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r);cursor:pointer;color:var(--text2);font-size:13px;font-weight:500;transition:all 0.18s;border:1px solid transparent;position:relative;}
+.nav-item:hover{background:var(--surface2);color:var(--text);}
+.nav-item.active{background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(34,211,238,0.07));color:#c7d2fe;border:1px solid rgba(99,102,241,0.25);}
+.nav-item.active::before{content:'';position:absolute;left:-1px;top:5px;bottom:5px;width:3px;background:linear-gradient(180deg,var(--indigo2),var(--cyan));border-radius:0 2px 2px 0;}
+.nav-ico{width:16px;height:16px;flex-shrink:0;opacity:0.6;}
+.nav-item.active .nav-ico{opacity:1;}
+.nav-count{margin-left:auto;font-family:var(--mono);font-size:11px;background:var(--surface3);padding:2px 8px;border-radius:6px;color:var(--text2);min-width:28px;text-align:center;}
+.nav-item.active .nav-count{background:rgba(99,102,241,0.2);color:var(--indigo);}
+.sidebar-footer{margin-top:auto;padding-top:16px;border-top:1px solid var(--border);font-size:11px;color:var(--text3);line-height:1.7;padding-left:4px;}
+
+/* MAIN */
+.main{padding:24px 28px;overflow-x:hidden;}
+
+/* UPLOAD */
+.upload-hero{text-align:center;padding:8px 0 28px;}
+.upload-hero-title{font-size:28px;font-weight:700;letter-spacing:-0.6px;background:linear-gradient(135deg,#f0f4ff 30%,#818cf8 65%,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:10px;line-height:1.2;}
+.upload-hero-sub{font-size:13px;color:var(--text2);max-width:440px;margin:0 auto;line-height:1.7;}
+.upload-zone{border:1.5px dashed rgba(99,102,241,0.28);border-radius:var(--r3);padding:48px 32px;text-align:center;cursor:pointer;transition:all 0.25s;background:linear-gradient(135deg,rgba(99,102,241,0.04),rgba(34,211,238,0.02));position:relative;overflow:hidden;max-width:620px;margin:0 auto;}
+.upload-zone::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(99,102,241,0.08) 0%,transparent 65%);pointer-events:none;}
+.upload-zone:hover,.upload-zone.drag{border-color:rgba(99,102,241,0.55);background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(34,211,238,0.04));}
+.upload-icon-wrap{width:64px;height:64px;margin:0 auto 16px;background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(34,211,238,0.1));border:1px solid rgba(99,102,241,0.28);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;transition:transform 0.2s;}
+.upload-zone:hover .upload-icon-wrap{transform:translateY(-4px);}
+.upload-zone-title{font-size:17px;font-weight:600;margin-bottom:6px;}
+.upload-zone-sub{font-size:13px;color:var(--text2);line-height:1.6;}
+.upload-formats{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap;}
+.fmt-pill{font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;color:var(--text2);font-family:var(--mono);}
+.upload-cta{display:inline-flex;align-items:center;gap:8px;padding:11px 28px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all 0.2s;box-shadow:0 4px 16px rgba(99,102,241,0.35);margin-top:20px;}
+.upload-cta:hover{box-shadow:0 6px 24px rgba(99,102,241,0.5);transform:translateY(-1px);}
+#fileInput{display:none;}
+.divider-or{display:flex;align-items:center;gap:12px;margin:24px auto;max-width:620px;color:var(--text3);font-size:12px;}
+.divider-or::before,.divider-or::after{content:'';flex:1;height:1px;background:var(--border);}
+.paste-area-wrap{max-width:620px;margin:0 auto;}
+.paste-label{font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:500;}
+.paste-box{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r2);padding:14px;color:var(--text);font-size:12px;width:100%;font-family:var(--mono);line-height:1.6;outline:none;resize:vertical;min-height:110px;transition:border-color 0.2s;}
+.paste-box:focus{border-color:rgba(99,102,241,0.5);}
+.paste-box::placeholder{color:var(--text3);}
+.paste-actions{display:flex;gap:8px;margin-top:10px;}
+.info-box{max-width:620px;margin:20px auto 0;background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.18);border-radius:var(--r2);padding:14px 16px;display:flex;gap:12px;align-items:flex-start;}
+.info-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+.info-text{font-size:12.5px;color:#a5b4fc;line-height:1.7;}
+.info-text code{background:rgba(99,102,241,0.2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:11px;color:#c7d2fe;}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:18px 20px;position:relative;overflow:hidden;transition:transform 0.18s,border-color 0.18s;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:var(--r2) var(--r2) 0 0;}
+.stat-card:hover{transform:translateY(-2px);border-color:var(--border2);}
+.sc-blue::before{background:linear-gradient(90deg,var(--indigo2),var(--cyan));}
+.sc-cyan::before{background:linear-gradient(90deg,var(--cyan),#0ea5e9);}
+.sc-red::before{background:linear-gradient(90deg,var(--red),var(--pink));}
+.sc-green::before{background:linear-gradient(90deg,var(--green),#34d399);}
+.stat-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:12px;}
+.sc-blue .stat-ico{background:rgba(99,102,241,0.14);}
+.sc-cyan .stat-ico{background:rgba(34,211,238,0.1);}
+.sc-red .stat-ico{background:rgba(239,68,68,0.1);}
+.sc-green .stat-ico{background:rgba(16,185,129,0.1);}
+.stat-val{font-size:28px;font-weight:700;font-family:var(--mono);letter-spacing:-1px;line-height:1;}
+.sc-blue .stat-val{color:var(--indigo);}
+.sc-cyan .stat-val{color:var(--cyan);}
+.sc-red .stat-val{color:var(--red);}
+.sc-green .stat-val{color:var(--green);}
+.stat-lbl{font-size:12px;font-weight:600;color:var(--text);margin-top:6px;}
+.stat-sub2{font-size:11px;color:var(--text3);margin-top:3px;}
+
+/* SECTION HEAD */
+.sec-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+.sec-title{font-size:15px;font-weight:700;letter-spacing:-0.3px;}
+.sec-badge{font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border2);padding:2px 9px;border-radius:5px;font-family:var(--mono);}
+.sec-spacer{flex:1;}
+
+/* CAT GRID */
+.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px;}
+.cat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:14px 16px;cursor:pointer;transition:all 0.18s;position:relative;overflow:hidden;}
+.cat-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 var(--r2) var(--r2);opacity:0;transition:opacity 0.2s;}
+.cat-card:hover{border-color:var(--border3);transform:translateY(-1px);}
+.cat-card:hover::after{opacity:1;}
+.cat-name{font-size:13px;font-weight:600;margin-bottom:4px;}
+.cat-kw{font-size:11px;color:var(--text2);font-family:var(--mono);line-height:1.5;}
+.cat-count-row{display:flex;align-items:baseline;gap:6px;margin-top:10px;}
+.cat-num{font-size:22px;font-weight:700;font-family:var(--mono);}
+.cat-total{font-size:12px;color:var(--text3);}
+.cat-bar{height:3px;background:var(--surface3);border-radius:2px;margin-top:8px;overflow:hidden;}
+.cat-bar-fill{height:100%;border-radius:2px;transition:width 0.5s ease;}
+.cc-purple .cat-name{color:var(--violet);}.cc-purple .cat-num{color:var(--violet);}.cc-purple .cat-bar-fill,.cc-purple::after{background:var(--violet);}
+.cc-amber .cat-name{color:var(--amber);}.cc-amber .cat-num{color:var(--amber);}.cc-amber .cat-bar-fill,.cc-amber::after{background:var(--amber);}
+.cc-red .cat-name{color:var(--red);}.cc-red .cat-num{color:var(--red);}.cc-red .cat-bar-fill,.cc-red::after{background:var(--red);}
+.cc-cyan .cat-name{color:var(--cyan);}.cc-cyan .cat-num{color:var(--cyan);}.cc-cyan .cat-bar-fill,.cc-cyan::after{background:var(--cyan);}
+.cc-blue .cat-name{color:var(--indigo);}.cc-blue .cat-num{color:var(--indigo);}.cc-blue .cat-bar-fill,.cc-blue::after{background:var(--indigo2);}
+.cc-green .cat-name{color:var(--green);}.cc-green .cat-num{color:var(--green);}.cc-green .cat-bar-fill,.cc-green::after{background:var(--green);}
+.cc-orange .cat-name{color:#fb923c;}.cc-orange .cat-num{color:#fb923c;}.cc-orange .cat-bar-fill,.cc-orange::after{background:#fb923c;}
+
+/* TABLE */
+.table-wrap{border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;background:var(--surface);}
+.table-inner{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead tr{background:var(--surface2);}
+th{padding:11px 14px;text-align:left;font-size:10.5px;font-family:var(--mono);color:var(--text2);letter-spacing:0.8px;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap;font-weight:500;}
+td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text);}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:rgba(255,255,255,0.022);}
+.td-time{font-family:var(--mono);font-size:11px;color:var(--text3);white-space:nowrap;}
+.td-name{font-size:12.5px;font-weight:600;white-space:nowrap;}
+.td-to{font-size:11.5px;color:var(--text2);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.td-chat{max-width:400px;line-height:1.55;word-break:break-word;}
+
+/* AVATAR */
+.avatar{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;vertical-align:middle;margin-right:7px;}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:20px;font-family:var(--mono);font-weight:500;white-space:nowrap;}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.badge-blur{background:rgba(167,139,250,0.12);color:#c4b5fd;border:1px solid rgba(167,139,250,0.2);}.badge-blur::before{background:var(--violet);}
+.badge-audio{background:rgba(245,158,11,0.12);color:#fcd34d;border:1px solid rgba(245,158,11,0.2);}.badge-audio::before{background:var(--amber);}
+.badge-recorded{background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);}.badge-recorded::before{background:var(--red);}
+.badge-network{background:rgba(34,211,238,0.1);color:#67e8f9;border:1px solid rgba(34,211,238,0.18);}.badge-network::before{background:var(--cyan);}
+.badge-login{background:rgba(99,102,241,0.12);color:#a5b4fc;border:1px solid rgba(99,102,241,0.22);}.badge-login::before{background:var(--indigo2);}
+.badge-custom{background:rgba(16,185,129,0.1);color:#6ee7b7;border:1px solid rgba(16,185,129,0.2);}.badge-custom::before{background:var(--green);}
+.badge-payment{background:rgba(251,146,60,0.1);color:#fdba74;border:1px solid rgba(251,146,60,0.2);}.badge-payment::before{background:#fb923c;}
+.badge-feedback{background:rgba(148,163,184,0.08);color:var(--text2);border:1px solid var(--border);}.badge-feedback::before{background:var(--text3);}
+/* ── Mandatory checklist ── */
+.mand-snippet-edit{display:flex;align-items:center;gap:5px;margin-top:3px;}
+.mand-snippet-code{font-family:var(--mono);font-size:10px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);padding:1px 7px;border-radius:3px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default;}
+.mand-snippet-code.custom{color:var(--amber);background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.25);}
+.mand-snippet-code.multi{color:var(--cyan);background:rgba(34,211,238,0.07);border-color:rgba(34,211,238,0.2);}
+.mand-edit-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:0 3px;transition:color 0.15s;line-height:1;flex-shrink:0;}
+.mand-edit-btn:hover{color:var(--indigo);}
+.mand-snippet-inp{font-family:var(--mono)!important;font-size:11px!important;padding:2px 8px!important;width:220px;}
+.mand-sent{color:var(--green);font-weight:600;font-size:12px;display:flex;align-items:center;gap:5px;}
+.mand-miss{color:var(--red);font-weight:600;font-size:12px;display:flex;align-items:center;gap:5px;}
+.progress-wrap{background:var(--surface2);border-radius:6px;height:8px;overflow:hidden;margin-top:6px;}
+.progress-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--indigo2),var(--green));transition:width 0.6s ease;}
+.mand-progress-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:18px 22px;margin-bottom:20px;}
+.mand-progress-top{display:flex;align-items:baseline;gap:10px;margin-bottom:8px;}
+.mand-big{font-size:32px;font-weight:700;font-family:var(--mono);}
+.mand-label{font-size:13px;color:var(--text2);}
+.mand-stats{display:flex;gap:20px;margin-top:10px;}
+.mand-stat{display:flex;flex-direction:column;gap:2px;}
+.mand-stat-val{font-size:18px;font-weight:700;font-family:var(--mono);}
+.mand-stat-lbl{font-size:11px;color:var(--text3);}
+/* ── Mandatory CSV upload ── */
+.mand-source-bar{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:12px 16px;margin-bottom:14px;flex-wrap:wrap;}
+.mand-source-label{font-size:12px;color:var(--text2);white-space:nowrap;}
+.mand-source-badge{font-size:11px;font-family:var(--mono);padding:3px 10px;border-radius:4px;font-weight:500;}
+.mand-source-default{background:rgba(99,102,241,0.1);color:var(--indigo);border:1px solid rgba(99,102,241,0.2);}
+.mand-source-custom{background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.2);}
+.mand-csv-drop{border:1.5px dashed var(--border2);border-radius:var(--r);padding:8px 16px;cursor:pointer;font-size:12.5px;color:var(--text2);transition:all 0.18s;display:flex;align-items:center;gap:8px;white-space:nowrap;}
+.mand-csv-drop:hover{border-color:rgba(99,102,241,0.5);color:var(--text);background:rgba(99,102,241,0.05);}
+/* ── Host config card ── */
+.host-config-card{max-width:620px;margin:0 auto 18px;background:var(--surface);border:1px solid rgba(99,102,241,0.25);border-radius:var(--r2);padding:16px 18px;position:relative;overflow:hidden;}
+.host-config-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--indigo2),var(--cyan));}
+.hcc-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.hcc-title{font-size:13px;font-weight:700;color:var(--text);}
+.hcc-hint{font-size:11px;color:var(--text3);margin-left:auto;}
+.handler-pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:26px;}
+.handler-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:20px;padding:3px 12px;font-size:12px;color:#a5b4fc;font-weight:500;}
+.handler-pill-dot{width:6px;height:6px;border-radius:50%;background:var(--indigo);flex-shrink:0;box-shadow:0 0 4px var(--indigo);}
+.hcc-desc{font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6;}
+/* ── Spam ── */
+.spam-banner{background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.2);border-radius:var(--r);padding:10px 16px;display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:13px;color:#fdba74;}
+.spam-banner-ico{font-size:15px;flex-shrink:0;}
+.spam-banner-text{flex:1;line-height:1.5;}
+.spam-banner strong{color:#fb923c;}
+.spam-row td{opacity:0.55;}
+.badge-spam{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(251,146,60,0.15);color:#fdba74;border:1px solid rgba(251,146,60,0.25);font-family:var(--mono);font-weight:600;vertical-align:middle;margin-left:6px;}
+.sc-orange::before{background:linear-gradient(90deg,#fb923c,#f97316);}
+.sc-orange .stat-ico{background:rgba(251,146,60,0.12);}
+.sc-orange .stat-val{color:#fb923c;}
+.cat-tag{font-size:10px;padding:2px 7px;border-radius:3px;font-family:var(--mono);font-weight:500;background:var(--surface3);color:var(--text2);white-space:nowrap;}
+.mand-time-chip{font-size:11px;font-family:var(--mono);color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 7px;white-space:nowrap;}
+.badge-promo{background:rgba(244,63,94,0.1);color:#fda4af;border:1px solid rgba(244,63,94,0.2);}.badge-promo::before{background:#f43f5e;}
+.cc-rose .cat-name{color:#fb7185;}.cc-rose .cat-num{color:#fb7185;}.cc-rose .cat-bar-fill,.cc-rose::after{background:#f43f5e;}
+.badge-cert{background:rgba(132,204,22,0.1);color:#bef264;border:1px solid rgba(132,204,22,0.2);}.badge-cert::before{background:#84cc16;}
+.cc-lime .cat-name{color:#a3e635;}.cc-lime .cat-num{color:#a3e635;}.cc-lime .cat-bar-fill,.cc-lime::after{background:#84cc16;}
+
+/* HANDLER CHIP */
+.handler-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.22);border-radius:6px;padding:3px 9px;font-size:12px;color:#a5b4fc;font-weight:600;}
+.handler-dot{width:6px;height:6px;border-radius:50%;background:var(--indigo);box-shadow:0 0 5px var(--indigo);}
+
+/* TOGGLE */
+.toggle-wrap{display:flex;align-items:center;cursor:pointer;}
+.toggle{width:34px;height:20px;background:var(--surface3);border-radius:10px;position:relative;transition:background 0.2s;flex-shrink:0;border:1px solid var(--border2);}
+.toggle.on{background:var(--indigo2);border-color:var(--indigo2);box-shadow:0 0 8px rgba(99,102,241,0.35);}
+.toggle::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);}
+.toggle.on::after{transform:translateX(14px);}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 20px;border-radius:var(--r);font-size:13px;cursor:pointer;border:none;font-family:var(--font);transition:all 0.18s;font-weight:600;}
+.btn-primary{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 3px 12px rgba(99,102,241,0.28);}
+.btn-primary:hover{box-shadow:0 5px 20px rgba(99,102,241,0.48);transform:translateY(-1px);}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2);}
+.btn-secondary:hover{background:var(--surface3);border-color:var(--border3);}
+.btn-success{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 3px 12px rgba(16,185,129,0.28);}
+.btn-success:hover{box-shadow:0 5px 20px rgba(16,185,129,0.44);transform:translateY(-1px);}
+.btn-sm{padding:6px 14px;font-size:12px;}
+.btn-xs{padding:4px 10px;font-size:11px;}
+
+/* INPUT */
+.inp{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:9px 13px;color:var(--text);font-size:13px;width:100%;font-family:var(--font);outline:none;transition:border-color 0.18s;}
+.inp:focus{border-color:rgba(99,102,241,0.5);box-shadow:0 0 0 3px rgba(99,102,241,0.07);}
+.inp::placeholder{color:var(--text3);}
+.inp-sm{padding:7px 11px;font-size:12.5px;}
+
+/* FILTER BAR */
+.filter-sel{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:7px 11px;color:var(--text);font-size:12.5px;font-family:var(--font);outline:none;cursor:pointer;transition:border-color 0.18s;}
+.filter-sel:focus{border-color:rgba(99,102,241,0.5);}
+
+/* PAGINATION */
+.pagination{display:flex;align-items:center;justify-content:space-between;margin-top:14px;}
+.page-info{font-size:12px;color:var(--text3);font-family:var(--mono);}
+.page-btns{display:flex;gap:6px;}
+.page-btn{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:5px 12px;font-size:12px;cursor:pointer;color:var(--text2);font-family:var(--font);font-weight:500;transition:all 0.15s;}
+.page-btn:hover{border-color:var(--indigo);color:var(--indigo);}
+
+/* EXPORT BAR */
+.export-bar{background:linear-gradient(135deg,rgba(99,102,241,0.1),rgba(34,211,238,0.05));border:1px solid rgba(99,102,241,0.22);border-radius:var(--r2);padding:18px 22px;display:flex;align-items:center;gap:16px;margin-bottom:24px;position:relative;overflow:hidden;}
+.export-bar::before{content:'';position:absolute;top:0;right:0;width:200px;height:100%;background:radial-gradient(ellipse at right,rgba(34,211,238,0.06) 0%,transparent 60%);pointer-events:none;}
+.export-info{flex:1;}
+.export-title{font-size:14px;font-weight:700;margin-bottom:3px;}
+.export-sub{font-size:12px;color:var(--text2);}
+.export-sheets{display:flex;gap:7px;flex-wrap:wrap;}
+.sheet-pill{font-size:11px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);border-radius:4px;padding:3px 10px;font-family:var(--mono);color:#a5b4fc;}
+
+/* BUILDER CARD */
+.builder-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:18px;margin-bottom:12px;}
+.builder-card-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.field-label{font-size:11.5px;font-weight:600;color:var(--text2);margin-bottom:6px;letter-spacing:0.3px;}
+.tags-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;min-height:30px;}
+.kw-tag{display:inline-flex;align-items:center;gap:5px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);border-radius:5px;padding:3px 9px;font-size:12px;font-family:var(--mono);color:#a5b4fc;}
+.kw-rm{cursor:pointer;color:#6366f1;font-size:15px;line-height:1;transition:color 0.15s;}
+.kw-rm:hover{color:var(--red);}
+
+/* ALERT */
+.alert-note{background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.2);border-radius:var(--r);padding:12px 16px;display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:#fde68a;line-height:1.6;margin-bottom:16px;}
+.alert-note-ico{flex-shrink:0;font-size:14px;margin-top:1px;}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:56px 24px;background:var(--surface);border-radius:var(--r2);}
+.empty-icon{font-size:44px;margin-bottom:14px;opacity:0.2;}
+.empty-txt{font-size:14px;font-weight:600;color:var(--text2);}
+.empty-sub2{font-size:12px;color:var(--text3);margin-top:5px;}
+
+@media(max-width:900px){.layout{grid-template-columns:1fr}.sidebar{display:none}.stats-row{grid-template-columns:repeat(2,1fr)}.cat-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="badge"><span class="badge-dot"></span>Be10x Ops Tools</div>
-  <h1>Zoom Chat <span class="accent">Analyser</span></h1>
-  <p class="subtitle">Upload attendee report + save chat → enriched, 22-category classified CSV with time-in-session</p>
-</div>
-
-<div class="upload-grid">
-  <div class="upload-zone" id="zone-txt"
-       ondragover="event.preventDefault();this.classList.add('drag')"
-       ondragleave="this.classList.remove('drag')"
-       ondrop="handleDrop(event,'txt')">
-    <input type="file" id="file-txt" accept=".txt" onchange="handleFile(event,'txt')">
-    <div class="uz-icon">💬</div>
-    <div class="uz-type">Zoom Save Chat</div>
-    <div class="uz-hint">Export from Zoom → Save Chat → .txt</div>
-    <div class="uz-badge">Mandatory</div>
-    <div class="uz-file" id="fname-txt"></div>
-    <div class="uz-check">✓</div>
+<header class="header">
+  <div class="logo-mark">Z+</div>
+  <div class="header-brand">
+    <div class="header-title">Zoom Savechat Analyzer</div>
+    <div class="header-sub">be10x · session intelligence</div>
   </div>
-  <div class="upload-zone" id="zone-csv"
-       ondragover="event.preventDefault();this.classList.add('drag')"
-       ondragleave="this.classList.remove('drag')"
-       ondrop="handleDrop(event,'csv')">
-    <input type="file" id="file-csv" accept=".csv" onchange="handleFile(event,'csv')">
-    <div class="uz-icon">📋</div>
-    <div class="uz-type">Attendee Report</div>
-    <div class="uz-hint">Download from Zoom Reports → .csv</div>
-    <div class="uz-badge">Mandatory</div>
-    <div class="uz-file" id="fname-csv"></div>
-    <div class="uz-check">✓</div>
+  <div class="header-right">
+    <div class="hdr-status"><span class="status-dot"></span><span id="hdrStatus">Ready</span></div>
+    <div class="hdr-pill">v2.1</div>
   </div>
-</div>
+</header>
 
-<div class="actions">
-  <button class="btn btn-primary" id="btn-run" disabled onclick="startAnalysis()">▶ Analyse Chat</button>
-  <button class="btn btn-dl" id="btn-dl" onclick="downloadCSV()">⬇ Download CSV</button>
-  <button class="btn btn-reset" id="btn-reset" onclick="resetTool()">↺ Reset</button>
-</div>
-
-<div class="progress-wrap" id="progress-wrap">
-  <div class="prog-header">
-    <span class="prog-label" id="prog-label">Initialising…</span>
-    <span class="prog-pct" id="prog-pct">0%</span>
+<div class="layout">
+<nav class="sidebar">
+  <div class="nav-label">Workflow</div>
+  <div class="nav-item active" id="nav-upload" onclick="switchView('upload')">
+    <svg class="nav-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v9M5 4.5L8 2l3 2.5M2 12v1.5c0 .28.22.5.5.5h11c.28 0 .5-.22.5-.5V12"/></svg>
+    Upload File
   </div>
-  <div class="prog-bar-bg"><div class="prog-bar-fill" id="prog-bar"></div></div>
-  <div class="terminal">
-    <div class="terminal-header">
-      <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
-      <span class="terminal-title">PROCESSING LOG</span>
+  <div class="nav-item" id="nav-chat" onclick="switchView('chat')">
+    <svg class="nav-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="13" height="13" rx="2"/><path d="M4 5.5h8M4 8h8M4 10.5h5"/></svg>
+    Total Chat
+    <span class="nav-count" id="nc-chat">0</span>
+  </div>
+  <div class="nav-item" id="nav-issues" onclick="switchView('issues')">
+    <svg class="nav-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v4M8 11v.5"/></svg>
+    Issue Analysis
+    <span class="nav-count" id="nc-issues">0</span>
+  </div>
+  <div class="nav-item" id="nav-handler" onclick="switchView('handler')">
+    <svg class="nav-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5.5" r="3"/><path d="M2.5 14c0-2.76 2.46-5 5.5-5s5.5 2.24 5.5 5"/></svg>
+    Handler Replies
+    <span class="nav-count" id="nc-handler">0</span>
+  </div>
+  <div class="nav-item" id="nav-mandatory" onclick="switchView('mandatory')">
+    <svg class="nav-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="13" height="13" rx="2"/><path d="M5 8l2 2 4-4"/></svg>
+    Mandatory Msgs
+    <span class="nav-count" id="nc-mandatory">—</span>
+  </div>
+  <div class="nav-label">Settings</div>
+  <div class="nav-item" id="nav-config" onclick="switchView('config')">
+    <svg class="nav-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06"/></svg>
+    Issue Categories
+  </div>
+  <div class="sidebar-footer">Upload → Review → Analyze → Export XLSX</div>
+</nav>
+
+<main class="main">
+
+<div id="exportBar" style="display:none;">
+  <div class="export-bar">
+    <div class="export-info">
+      <div class="export-title">Export Final Report</div>
+      <div class="export-sub">XLSX · Issues inline in Total Chat (filter by "Is Issue?" = 1)</div>
     </div>
-    <div class="log" id="log"></div>
+    <div class="export-sheets">
+      <span class="sheet-pill">Total Chat + Issues</span>
+      <span class="sheet-pill">Handler Replies</span>
+      <span class="sheet-pill">Mandatory Messages</span>
+    </div>
+    <button class="btn btn-success" onclick="exportXLSX()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 1v8M4 6l3 3 3-3M1 10v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>
+      Export XLSX
+    </button>
   </div>
 </div>
 
-<div class="stats-grid" id="stats-grid">
-  <div class="stat"><div class="stat-v" id="s-msgs">—</div><div class="stat-l">Chat Messages</div></div>
-  <div class="stat"><div class="stat-v" id="s-att">—</div><div class="stat-l">Attendees</div></div>
-  <div class="stat"><div class="stat-v" id="s-match">—</div><div class="stat-l">Names Matched</div></div>
-  <div class="stat"><div class="stat-v" id="s-rule">—</div><div class="stat-l">Rule Classified %</div></div>
+<!-- VIEW: UPLOAD -->
+<div id="view-upload">
+  <div class="upload-hero">
+    <div class="upload-hero-title">Zoom Chat Intelligence</div>
+    <div class="upload-hero-sub">Upload your session savechat and instantly get issue analysis, handler insights, and an export-ready report.</div>
+  </div>
+
+  <!-- HOST / HANDLER NAMES CONFIG — set before uploading -->
+  <div class="host-config-card">
+    <div class="hcc-header">
+      <span class="hcc-title">🎙️ Host / Handler Names</span>
+      <span class="hcc-hint">Comma-separated · add all possible name variants</span>
+    </div>
+    <input class="inp inp-sm" id="handlerNamesInput"
+           value="Aditya Be10x"
+           placeholder="Aditya Be10X, Aditya - Be10X, Host Name"
+           oninput="updateHandlerPills()"/>
+    <div id="handlerPills" class="handler-pills"></div>
+    <div class="hcc-desc">
+      These names are used everywhere — Handler Replies sheet, Mandatory message tracking,
+      Spam exclusion, Issue filtering, and Certificate link detection.
+      Change any time; analysis re-runs automatically.
+    </div>
+  </div>
+
+  <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+    <div class="upload-icon-wrap">📂</div>
+    <div class="upload-zone-title">Drop your Zoom savechat here</div>
+    <div class="upload-zone-sub">Drag &amp; drop your .txt file, or click to browse</div>
+    <div class="upload-formats">
+      <span class="fmt-pill">.txt</span><span class="fmt-pill">Zoom format</span><span class="fmt-pill">25,000+ rows</span>
+    </div>
+    <button class="upload-cta" onclick="event.stopPropagation();document.getElementById('fileInput').click()">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="2"><path d="M7.5 1.5v9M4.5 4L7.5 1l3 3M1.5 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>
+      Choose File
+    </button>
+  </div>
+  <input type="file" id="fileInput" accept=".txt,.log" onchange="loadFile(event)"/>
+  <div class="divider-or">or paste chat text directly</div>
+  <div class="paste-area-wrap">
+    <div class="paste-label">Paste Zoom chat content</div>
+    <textarea class="paste-box" id="pasteArea" placeholder="10:46:56 From Rahul Sharma to Hosts and panelists:&#10;&#9;Audio is not coming properly&#10;11:04:00 From Aditya Be10x to Rahul Sharma, Hosts and panelists:&#10;&#9;Please try rejoining the session"></textarea>
+    <div class="paste-actions">
+      <button class="btn btn-primary btn-sm" onclick="parseFromPaste()">Parse Chat</button>
+      <button class="btn btn-secondary btn-sm" onclick="loadDemo()">Load Demo</button>
+    </div>
+  </div>
+  <div class="info-box">
+    <span class="info-icon">💡</span>
+    <div class="info-text"><strong>Supported formats:</strong> <code>HH:MM:SS From [Name] to [Destination]:</code> or <code>YYYY-MM-DD HH:MM:SS From [Name] to [Destination]:</code> on one line, message on the next (tab-indented). Both classic and new Zoom Save Chat exports work.</div>
+  </div>
 </div>
 
-<div class="cat-wrap" id="cat-wrap">
-  <div class="cat-header">Category Breakdown</div>
-  <div class="cat-grid" id="cat-grid"></div>
+<!-- VIEW: TOTAL CHAT -->
+<div id="view-chat" style="display:none;">
+  <div id="statsRow" class="stats-row"></div>
+  <!-- spam banner — shown only when spam was removed -->
+  <div id="spamBanner" style="display:none;" class="spam-banner">
+    <span class="spam-banner-ico">🧹</span>
+    <div class="spam-banner-text">
+      <strong id="spamBannerCount">0</strong> spam messages detected from <strong id="spamBannerSenders">0</strong> senders
+      (same message sent repeatedly within 2 min). All messages are kept in Total Chat —
+      spam is <strong>excluded from Issues only</strong>.
+    </div>
+    <button class="btn btn-secondary btn-xs" onclick="switchChatTab('spam')">View removed →</button>
+  </div>
+
+  <!-- tabs -->
+  <div class="sec-head">
+    <div class="sec-title">Total Chat</div>
+    <span class="sec-badge" id="tag-chat">0 messages</span>
+    <div class="sec-spacer"></div>
+    <div class="tabs" id="chatTabsWrap" style="margin-bottom:0;">
+      <div class="tab active" id="tab-clean" onclick="switchChatTab('clean')">All Messages</div>
+      <div class="tab" id="tab-spam" onclick="switchChatTab('spam')">
+        Spam Removed <span id="tab-spam-count" style="font-size:11px;opacity:0.7;"></span>
+      </div>
+    </div>
+    <input class="inp inp-sm" id="chatSearch" placeholder="Search messages…" oninput="renderChatTable()" style="width:200px;margin-left:8px;"/>
+  </div>
+
+  <div class="table-wrap"><div class="table-inner">
+    <table><thead><tr><th>Time</th><th>From</th><th>To</th><th>Message</th><th id="spamColHead" style="display:none;">Spam</th></tr></thead>
+    <tbody id="chatTbody"></tbody></table>
+  </div></div>
+  <div class="pagination">
+    <div class="page-info" id="chatPageInfo"></div>
+    <div class="page-btns">
+      <button class="page-btn" onclick="changePage('chat',-1)">← Prev</button>
+      <button class="page-btn" onclick="changePage('chat',1)">Next →</button>
+    </div>
+  </div>
 </div>
 
-<div class="success-banner" id="success-banner">
-  <p>✅ Analysis complete — <span id="ready-count"></span> rows ready for download</p>
+<!-- VIEW: ISSUES -->
+<div id="view-issues" style="display:none;">
+  <div class="sec-head">
+    <div class="sec-title">Issue Analysis</div>
+    <span class="sec-badge" id="tag-issues">0 issues</span>
+    <div class="sec-spacer"></div>
+    <select class="filter-sel" id="issueFilter" onchange="renderIssueTable()"><option value="all">All Categories</option></select>
+    <input class="inp inp-sm" id="issueSearch" placeholder="Search…" oninput="renderIssueTable()" style="width:180px;"/>
+  </div>
+  <div class="cat-grid" id="catGrid"></div>
+  <div class="alert-note">
+    <span class="alert-note-ico">⚠️</span>
+    <span><strong>Recorded Session logic:</strong> Only complaints that the session is pre-recorded are flagged. Requests to receive recordings ("will we get recording?") are automatically excluded.</span>
+  </div>
+  <div class="sec-head" style="margin-top:4px;">
+    <div class="sec-title">Flagged Issues</div>
+    <span class="sec-badge" id="tag-issues-count">—</span>
+    <div class="sec-spacer"></div>
+    <span style="font-size:12px;color:var(--text2);">Toggle rows to include / exclude from export</span>
+  </div>
+  <div class="table-wrap"><div class="table-inner">
+    <table><thead><tr><th>Time</th><th>From</th><th>Replied To</th><th>Message</th><th>Issue</th><th>Include</th></tr></thead>
+    <tbody id="issueTbody"></tbody></table>
+  </div></div>
+  <div class="pagination">
+    <div class="page-info" id="issuePageInfo"></div>
+    <div class="page-btns">
+      <button class="page-btn" onclick="changePage('issue',-1)">← Prev</button>
+      <button class="page-btn" onclick="changePage('issue',1)">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW: HANDLER -->
+<div id="view-handler" style="display:none;">
+  <div class="sec-head">
+    <div class="sec-title">Handler Replies</div>
+    <span class="sec-badge" id="tag-handler">0 replies</span>
+    <div class="sec-spacer"></div>
+    <span style="font-size:12px;color:var(--text2);margin-right:8px;">Handlers:</span>
+    <span id="handlerNamesDisplay" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"></span>
+    <button class="btn btn-secondary btn-xs" style="margin-left:8px;" onclick="switchView('upload')" title="Edit handler names in Session Config">⚙ Edit Names</button>
+  </div>
+  <div class="alert-note">
+    <span class="alert-note-ico">ℹ️</span>
+    <span>Only messages sent to <strong>individual customers</strong> are shown. Broadcasts to Everyone and Hosts &amp; panelists are excluded.</span>
+  </div>
+  <div class="table-wrap"><div class="table-inner">
+    <table><thead><tr><th>Time</th><th>Handler</th><th>Replied To</th><th>Message</th></tr></thead>
+    <tbody id="handlerTbody"></tbody></table>
+  </div></div>
+  <div class="pagination">
+    <div class="page-info" id="handlerPageInfo"></div>
+    <div class="page-btns">
+      <button class="page-btn" onclick="changePage('handler',-1)">← Prev</button>
+      <button class="page-btn" onclick="changePage('handler',1)">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW: CONFIG -->
+<div id="view-config" style="display:none;">
+  <div class="sec-head">
+    <div class="sec-title">Issue Categories</div>
+    <span class="sec-badge">edit keywords · add categories</span>
+  </div>
+  <div id="configCards"></div>
+  <div class="sec-head" style="margin-top:24px;">
+    <div class="sec-title">Add New Category</div>
+  </div>
+  <div class="builder-card">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div><div class="field-label">Category name</div><input class="inp inp-sm" id="newCatName" placeholder="e.g. Slide Issues"/></div>
+      <div><div class="field-label">Color style</div>
+        <select class="inp inp-sm" id="newCatColor">
+          <option value="badge-custom">Green</option><option value="badge-blur">Purple</option>
+          <option value="badge-audio">Amber</option><option value="badge-recorded">Red</option>
+          <option value="badge-network">Cyan</option><option value="badge-login">Blue</option>
+          <option value="badge-payment">Orange</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-label">Keywords <span style="font-weight:400;color:var(--text3)">(Enter or comma to add)</span></div>
+    <input class="inp inp-sm" id="newCatKwInput" placeholder="Type keyword and press Enter…" onkeydown="addKwTag(event)"/>
+    <div class="tags-wrap" id="newCatTags"></div>
+    <div style="margin-top:14px;display:flex;gap:8px;">
+      <button class="btn btn-primary btn-sm" onclick="addCustomCategory()">Add Category</button>
+      <button class="btn btn-secondary btn-sm" onclick="clearNewCat()">Clear</button>
+    </div>
+  </div>
+  <button class="btn btn-primary" style="margin-top:8px;" onclick="reanalyze();switchView('issues')">Re-analyze with Current Config →</button>
+</div>
+
+<!-- VIEW: MANDATORY MESSAGES -->
+<div id="view-mandatory" style="display:none;">
+  <div class="sec-head">
+    <div class="sec-title">Mandatory Messages Tracker</div>
+    <span class="sec-badge" id="tag-mandatory">Load a savechat to check</span>
+    <div class="sec-spacer"></div>
+    <span style="font-size:12px;color:var(--text2);">Handler: <strong id="mand-handler-name">Aditya Be10X</strong></span>
+  </div>
+
+  <!-- CSV Source Bar -->
+  <div class="mand-source-bar">
+    <span class="mand-source-label">Mandatory messages source:</span>
+    <span class="mand-source-badge mand-source-default" id="mandSourceBadge">Default — 25 messages</span>
+    <div class="sec-spacer"></div>
+    <div class="mand-csv-drop" onclick="document.getElementById('mandCSVInput').click()">
+      📋 Upload CSV to override
+    </div>
+    <input type="file" id="mandCSVInput" accept=".csv,.txt" onchange="loadMandatoryCSV(event)" style="display:none;"/>
+    <button class="btn btn-secondary btn-xs" id="mandResetBtn" onclick="resetToDefaultMandatory()" style="display:none;">↺ Reset to Default</button>
+  </div>
+
+  <div class="mand-progress-card" id="mandProgressCard">
+    <div class="mand-progress-top">
+      <span class="mand-big" id="mandBig" style="color:var(--green)">—</span>
+      <span class="mand-label">/ <span id="mandTotal">25</span> mandatory messages sent</span>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" id="mandProgressBar" style="width:0%"></div></div>
+    <div class="mand-stats">
+      <div class="mand-stat"><span class="mand-stat-val" id="mand-sent-cnt" style="color:var(--green)">—</span><span class="mand-stat-lbl">Sent ✅</span></div>
+      <div class="mand-stat"><span class="mand-stat-val" id="mand-miss-cnt" style="color:var(--red)">—</span><span class="mand-stat-lbl">Missing ❌</span></div>
+      <div class="mand-stat"><span class="mand-stat-val" id="mand-pct" style="color:var(--indigo)">—</span><span class="mand-stat-lbl">Completion</span></div>
+    </div>
+  </div>
+
+  <div class="table-wrap"><div class="table-inner">
+    <table>
+      <thead><tr><th>#</th><th>Category</th><th>Message / Label</th><th>Required Timing</th><th>Status</th><th>Sent At</th><th>Times Sent</th></tr></thead>
+      <tbody id="mandatoryTbody"></tbody>
+    </table>
+  </div></div>
+
+  <div class="alert-note" style="margin-top:16px;">
+    <span class="alert-note-ico">ℹ️</span>
+    <span>Matching scans all handler broadcasts to <strong>Everyone</strong> and <strong>Hosts &amp; panelists</strong>. Duplicate messages in uploaded CSV are deduped automatically. Upload a CSV to use session-specific mandatory messages instead of the built-in default list.</span>
+  </div>
+</div>
+
+</main>
 </div>
 
 <script>
-let txtContent = null, csvContent = null, finalRows = null;
+let allChats=[],allIssues=[],handlerRows=[],spamChats=[];
+let chatPage=1,issuePage=1,handlerPage=1;
+const PAGE=50;
+let newCatKws=[];
+let chatTabMode='clean'; // 'clean' | 'spam'
+let certLinkSentSecs=null; // timestamp (seconds) when handler first sent cert link to Everyone
+let CATEGORIES=[
+  // ─── Blurry / Video ───────────────────────────────────────────────────────
+  // Video-specific keywords only. Ambiguous phrases like "not clear" / "not visible"
+  // are scoped to video/screen so they can't steal audio complaints like
+  // "voice is not clear". An audio-context exclusion is the final safety net.
+  {id:'blur',name:'Blurry / Video',badge:'badge-blur',ccls:'cc-purple',
+   keywords:[
+     'blur','blurry','fuzzy','pixelated','hazy','grainy',
+     'video quality','screen quality','picture quality','display quality',
+     'video not clear','video is not clear','screen not clear','screen is not clear',
+     'video not visible','screen not visible','slides not visible','slide not visible',
+     'video not coming','video not showing','screen not showing','cant see the screen',
+     'cant see the slide','cannot see the slide','cant see slides','cannot see slides','cant see the slides','cannot see the slides',
+     'cant see the video','cannot see the video','poor video','poor quality video',
+     'screen issue','screen problem','video issue','video problem',
+     'not visible properly','low quality video','bad video'
+   ],
+   // Safety net: if the message is about audio/voice/sound, it is NOT a video issue
+   excl:[/\b(voice|audio|sound|hear|hearing|audible|speaker|mic|volume|echo)\b/i]},
 
-async function handleFile(e, type) { const f = e.target.files[0]; if (f) await loadFile(f, type); }
-async function handleDrop(e, type) {
-  e.preventDefault();
-  document.getElementById('zone-' + type).classList.remove('drag');
-  const f = e.dataTransfer.files[0]; if (f) await loadFile(f, type);
-}
-async function loadFile(f, type) {
-  const text = await f.text();
-  if (type === 'txt') txtContent = text; else csvContent = text;
-  document.getElementById('fname-' + type).textContent = '📎 ' + f.name;
-  document.getElementById('zone-' + type).classList.add('loaded');
-  checkReady();
-}
-function checkReady() { document.getElementById('btn-run').disabled = !(txtContent && csvContent); }
+  // ─── Audio Issues ─────────────────────────────────────────────────────────
+  // Removed generic standalone keywords (voice, sound, audio, hear) that caused
+  // false positives on AI feature mentions ("voice commands", "audio message" etc.)
+  // Now only problem-specific compound phrases + inherently-negative words.
+  {id:'audio',name:'Audio Issues',badge:'badge-audio',ccls:'cc-amber',
+   // Every keyword is audio-scoped. NO bare 'not working' / 'not coming' /
+   // 'feedback' — those caught "link is not working", "QR code not working",
+   // and "honest feedback for you" as false Audio Issues.
+   keywords:[
+     // inherently negative audio words
+     'mute','muted','echo','distort','audio feedback','mic feedback','sound feedback',
+     // cant-hear variants (Indian typing style = no apostrophe)
+     'cant hear','cannot hear','not audible','not hearing','hear nothing',
+     'not able to hear','unable to hear',
+     // audio complaint phrases (with and without "is")
+     'audio not','audio is not','no audio','audio issue','audio problem',
+     'audio not clear','audio is not clear','audio unclear','audio breaking',
+     'audio is muted','audio cutting','audio cut',
+     // sound complaint phrases
+     'no sound','sound not','sound is not','sound issue','sound problem',
+     'sound not clear','sound is not clear','sound unclear','sound breaking',
+     // voice complaint phrases
+     'voice not','voice is not','voice issue','voice problem',
+     'voice breaking','voice is breaking','voice cracking',
+     'voice not clear','voice is not clear','voice unclear',
+     // mic / speaker
+     'mic not','mic is not','mic issue','mic problem','mic muted',
+     'speaker not','speaker is not','speaker issue',
+     // volume
+     'volume issue','volume not','volume is not','volume low','low volume',
+     // noise
+     'background noise','noise issue','hearing problem',
+     'you are muted','u r muted','sir muted','host muted','you are on mute'
+   ]},
 
-/* CSV PARSER */
-function parseCSVLine(line) {
-  const out = []; let cur = '', inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
-    else if (c === ',' && !inQ) { out.push(cur.trim()); cur = ''; } else cur += c;
+  // ─── Recorded Session ─────────────────────────────────────────────────────
+  {id:'recorded',name:'Recorded Session',badge:'badge-recorded',ccls:'cc-red',
+   keywords:['recorded','not live','pre-recorded','prerecorded','playing old','not original',
+             'fake live','simulive','same video','seen before'],
+   excl:[/will (we|you|i|the session|this) (get|have|receive|send)/i,
+         /send (me|us) (the )?record/i,
+         /recording (available|link|please|send|share|provide)/i,
+         /get (the )?recording/i,/share (the )?recording/i,
+         /is (the )?session being recorded/i,/are you recording/i,
+         /record kar/i,/record (ho|hoga|hogi|hua)/i],
+   req:[/this is (a |pre.?)?recorded/i,/session is (pre.?)?recorded/i,
+        /not (a )?live/i,/pre.?recorded/i,/already (seen|watched|viewed)/i,
+        /same (video|session|class)/i,/playing (old|previous|again)/i]},
+
+  // ─── Network / Lag ────────────────────────────────────────────────────────
+  {id:'network',name:'Network / Lag',badge:'badge-network',ccls:'cc-cyan',
+   // Bare 'network' / 'internet' / 'connection' / 'slow' removed — they caught
+   // profession intros like "36, network Automation Engineer" and teaching-pace
+   // feedback like "pace slow karo". All keywords are now problem-scoped.
+   keywords:[
+     // inherently problem words
+     'lag','lagging','laggy','buffering','buffer','glitching','glitch',
+     'frozen','freezing','keeps freezing','screen freeze','video freeze',
+     'disconnect','disconnected','reconnect','reconnecting',
+     // internet problem compounds
+     'internet slow','slow internet','internet is slow','internet issue',
+     'internet problem','internet not','no internet','poor internet','weak internet',
+     'my internet','internet down','net slow','net is slow','net issue',
+     // network problem compounds
+     'network issue','network problem','network slow','network is slow',
+     'network too slow','network is too slow','poor network','weak network',
+     'no network','network not','network down','network error','network unstable',
+     // connection problem compounds
+     'connection issue','connection problem','connection lost','connection drop',
+     'connection dropping','connection dropped','poor connection','weak connection',
+     'connection slow','connection is slow','unstable connection','keeps dropping',
+     // streaming / loading problems
+     'keeps buffering','not loading','video stuck','screen stuck','stream stuck',
+     'video hanging','video lag','stream lag','low bandwidth','bandwidth issue'
+   ],
+   // Safety net: profession/intro context (host asks age + profession) is never
+   // a network issue — unless a genuine complaint word is also present
+   excl:[/\b(engineer|engineering|developer|analyst|architect|administrator|admin|consultant|specialist|technician|professional|profession|designation|automation|implementation|years? of (exp|experience)|working (in|as|at))\b/i],
+   exclBypass:[/\b(lag|lagging|laggy|buffering|slow|not working|issue|problem|disconnect|poor|weak|unstable|frozen|freezing|stuck|dropped|dropping|down)\b/i]},
+
+  // ─── Certificate / Link Issues ───────────────────────────────────────────
+  // Attendees reporting errors after the certificate link is sent.
+  // Placed BEFORE Login/Access so cert-specific messages are caught here first.
+  {id:'cert',name:'Certificate / Link Issues',badge:'badge-cert',ccls:'cc-lime',
+   keywords:[
+     // Direct certificate reference
+     'certificate','certx',
+     // Generation failures
+     'not able to generate','unable to generate','cant generate','cannot generate',
+     // Form failures (the cert page renders as a form)
+     'form is not','form not loading','form not working','form is loading',
+     // Error state messages
+     'something went wrong','something wrong',
+     'server is crashing','server crash','server crashing',
+     'showing something error','shows something wrong','shows something error',
+     'something error',
+     // Link / URL open failures
+     'url is not working','url not working',
+     'not able to open','did not open','link not opening',
+     'not opening','website not opening','site not working','page not loading',
+     // Generic link complaint phrases (for cert context)
+     'link is not working','link not working for me','link not working',
+     'that link is not working','the link is not working',
+     'link shows something','form shows error'
+   ],
+   // Exclude: people asking for the link (not reporting a problem with it)
+   excl:[
+     /(send|share|give|provide|what is|where is)\s+(me\s+)?(the\s+)?(cert|certificate|link)/i,
+     /(can\s+(you|we)|please)\s+(send|share|provide)/i,
+     /(want|need|looking for)\s+(the\s+)?(cert|certificate|link)/i,
+     // Positive confirmations — certificate successfully received/generated
+     /(got|received|generated|downloaded|completed)\s+(my\s+|the\s+)?certificate/i,
+     /certificate\s+(received|done|generated|downloaded|completed|worked|working|is ready|ready)/i,
+     /thank(s| you)\s+(for|very much)/i,
+     /(got my|have my|i got|i have)\s+certificate/i
+   ]},
+
+  // ─── Login / Access ───────────────────────────────────────────────────────
+  {id:'login',name:'Login / Access',badge:'badge-login',ccls:'cc-blue',
+   keywords:['login','log in','link','cant join','unable to join','not able to join',
+             'not able to login','password','otp','register','enrollment','access denied',
+             'no access','app not working','app is not working','app store version',
+             'app not opening','app crash','cant install','unable to install','app issue'],
+   excl:[/\b(want|wan|wanna|would like|wish|like)\s+to\s+(join|register|enroll)/i,
+         /\bwhen\s+(can|do|will)\s+(i|we)\s+(join|register)/i,
+         /\bhow\s+(can|do|to)\s+(i|we|one)\s+(join|register)/i,
+         /\balready\s+(registered|enrolled|a member|in the program)/i,
+         /\byes[,.]?\s+(i\s+)?want\s+to\s+(join|register)/i],
+   exclBypass:[/can.t|cannot|not\s+able|not\s+working|error|failed|issue|problem|not\s+(get|getting|received|found)|link\s+not|expired|invalid/i]},
+
+  // ─── Payment Issues ───────────────────────────────────────────────────────
+  // Strategy: require at least one COMPLAINT SIGNAL.
+  // Confirmations ("payment done", "paid", "completed payment") have NO complaint
+  // signal and will NOT be flagged. Only actual problems get through.
+  {id:'payment',name:'Payment Issues',badge:'badge-payment',ccls:'cc-orange',
+   keywords:['payment','pay','paid','refund','charge','debit','credit','money',
+             'amount','receipt','invoice','transaction','not received','didnt get',
+             'qr code','qr not','scanner','upi'],
+   // Must contain at least one of these problem indicators to be flagged:
+   req:[/\b(not|no|failed|fail|failure|error|issue|problem|pending|refund|wrong|double|twice|deducted|missing|overcharged|incorrect|declined|rejected|bounced|dispute|chargeback|unsuccessful|didn.?t|didnt|did not|cant|cannot|unable|not\s+done|not\s+processed|not\s+successful|not\s+received|not\s+getting|not\s+reflecting|not\s+credited|not\s+working)\b/i]},
+
+  // ─── Promotion Complaints ──────────────────────────────────────────────────
+  // Attendees complaining about too much promotion / selling during the session.
+  // Core keywords: promotion / promoting / promote / promotions are sufficient —
+  // in a live workshop context these words from attendees are almost always a complaint.
+  // Exclusions guard against: promo codes, discount enquiries, job promotions.
+  {id:'promo',name:'Promotion Complaints',badge:'badge-promo',ccls:'cc-rose',
+   keywords:[
+     'promotion','promoting','promote','promotions',
+     'only selling','stop selling','just selling','too much selling',
+     'too much marketing','stop marketing','only marketing',
+     'sales pitch','just sales','only sales'
+   ],
+   excl:[
+     // promo codes / discount / offer queries — not a complaint
+     /\b(promo|promotion)\s*(code|offer|discount|deal|coupon|price)\b/i,
+     /\b(any|got|have|is there)\s+(a\s+)?(promo|promotion|discount|offer)\b/i,
+     // job / career promotion — unrelated
+     /\b(got|received|earned|career|my|job)\s+(a\s+)?promot/i,
+     /\bpromoted\s+(at|to|as|in)\b/i,
+     // asking if recording or content will be promoted (neutral)
+     /\b(will|can|could)\s+(you|we|i)\s+promot/i
+   ]},
+];
+
+function parseZoomChat(text){
+  const rows=[];
+  const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  // Header formats supported:
+  //   "HH:MM:SS From Name to Destination:"              (classic)
+  //   "YYYY-MM-DD HH:MM:SS From Name to Destination:"   (new export format)
+  //   "DD/MM/YYYY HH:MM:SS From ..." / "DD-MM-YYYY ..." (defensive)
+  const hr=/^(?:\d{4}-\d{2}-\d{2}\s+|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\s+)?(\d{1,2}:\d{2}:\d{2})\s+[Ff]rom\s+(.+?)\s+[Tt]o\s+(.+?):\s*$/;
+  let cur=null;
+  for(let i=0;i<lines.length;i++){
+    const t=lines[i].trim();
+    const hm=t.match(hr);
+    if(hm){
+      if(cur&&cur.m.length) rows.push({time:cur.time,admin:cur.admin,replyTo:cur.replyTo,chat:cur.m.join(' ').trim()});
+      cur={time:hm[1],admin:hm[2].trim(),replyTo:hm[3].trim(),m:[]};
+    } else if(cur&&t.length>0) cur.m.push(t);
   }
-  out.push(cur.trim()); return out;
+  if(cur&&cur.m.length) rows.push({time:cur.time,admin:cur.admin,replyTo:cur.replyTo,chat:cur.m.join(' ').trim()});
+  return rows;
 }
 
-/* PARSE ZOOM CHAT */
-function parseZoomChat(text) {
-  const msgs = [], lines = text.split('\n');
-  const RE = /^(\d{1,2}:\d{2}:\d{2})\s+From\s+(.+?)\s+to\s+.+?\s*:/;
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(RE); if (!m) continue;
-    const ts = m[1].padStart(8,'0'), name = m[2].trim(); let msg = ''; i++;
-    while (i < lines.length) {
-      const nxt = lines[i];
-      if (nxt.startsWith('\t') || nxt.startsWith('    ')) { msg += (msg ? ' ' : '') + nxt.trim(); i++; }
-      else if (nxt.trim() === '') i++; else break;
-    }
-    i--;
-    if (msg.trim()) msgs.push({ ts, name, msg: msg.trim() });
-  }
-  return msgs;
+// Shared time utility (used by spam detection + cert time gate)
+function timeToSecs(t){const p=t.split(':').map(Number);return p[0]*3600+p[1]*60+(p[2]||0);}
+
+// Word-boundary keyword match — prevents "mic" matching "academic", "mute" matching "mimutes" etc.
+function kwMatch(chat,kw){
+  const esc=kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  return new RegExp('\\b'+esc+'\\b','i').test(chat);
 }
 
-/* PARSE ATTENDEE CSV */
-function parseAttendeeCsv(text) {
-  const lines = text.split('\n'); let secStart = -1;
-  for (let i = 0; i < lines.length; i++) { if (lines[i].startsWith('Attendee Details')) { secStart = i; break; } }
-  if (secStart === -1) { addLog('⚠ "Attendee Details" section not found', 'warn'); return null; }
-  const headers = parseCSVLine(lines[secStart + 1]);
-  const iAtt = headers.findIndex(h => h === 'Attended');
-  const iName = headers.findIndex(h => h.toLowerCase().includes('user name'));
-  const iEmail = headers.findIndex(h => h === 'Email');
-  const iTime = headers.findIndex(h => h.toLowerCase().includes('time in session'));
-  if (iName === -1 || iTime === -1) { addLog('⚠ Cannot find required columns', 'warn'); return null; }
-  const timeByKey = {}, nameToKey = {};
-  for (let i = secStart + 2; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.trim() || line.startsWith('Other Attended')) break;
-    const cols = parseCSVLine(line);
-    if (!cols || cols.length <= Math.max(iName, iTime)) continue;
-    if ((cols[iAtt] || '').trim() !== 'Yes') continue;
-    const name = (cols[iName] || '').trim();
-    const email = (iEmail !== -1) ? (cols[iEmail] || '').toLowerCase().trim() : '';
-    const tStr = (cols[iTime] || '').trim();
-    const mins = (tStr === '--' || tStr === '') ? 0 : (parseFloat(tStr) || 0);
-    const key = email || name.toLowerCase();
-    if (!key) continue;
-    timeByKey[key] = (timeByKey[key] || 0) + mins;
-    if (name && !nameToKey[name.toLowerCase()]) nameToKey[name.toLowerCase()] = key;
-  }
-  const timeByName = {};
-  for (const [nl, key] of Object.entries(nameToKey)) timeByName[nl] = timeByKey[key];
-  return { timeByKey, timeByName, nameToKey };
-}
+function detectIssues(rows){
+  const issues=[];
+  for(const row of rows){
+    // Handler messages are NEVER issues — issues come only from attendees
+    if(isHandler(row.admin)) continue;
+    for(const cat of CATEGORIES){
 
-/* NAME MATCHING */
-function getTime(chatName, data) {
-  if (!data) return '';
-  const { timeByKey, timeByName, nameToKey } = data;
-  const lo = chatName.toLowerCase().trim();
-  if (lo in timeByName) return timeByName[lo];
-  for (const [atName, key] of Object.entries(nameToKey)) {
-    if (atName.startsWith(lo) || lo.startsWith(atName)) return timeByKey[key];
-  }
-  const words = lo.split(/\s+/).filter(w => w.length > 1);
-  if (words.length >= 2) {
-    for (const [atName, key] of Object.entries(nameToKey)) {
-      if (words.every(w => atName.includes(w))) return timeByKey[key];
-    }
-  }
-  if (words.length === 1 && words[0].length > 3) {
-    for (const [atName, key] of Object.entries(nameToKey)) {
-      if (atName.split(/\s+/)[0] === words[0]) return timeByKey[key];
-    }
-  }
-  return '';
-}
+      // STEP 1 — keyword match (word-boundary)
+      if(!cat.keywords.some(k=>kwMatch(row.chat,k))) continue;
 
-/* ============================================================
-   COMPREHENSIVE RULE-BASED CLASSIFIER  (targets 85%+ coverage)
-   ============================================================ */
-function quickClassify(rawMsg) {
-  const msg = rawMsg.trim();
-  const m   = msg.toLowerCase();
+      // STEP 1.5 — cert time gate
+      // Only flag cert issues AFTER the handler first sent the certificate link to Everyone.
+      // Everything before that timestamp is attendees requesting/asking about the cert — not an error.
+      if(cat.id==='cert'){
+        if(certLinkSentSecs===null) continue; // handler hasn't sent the cert link → no cert issues possible
+        if(timeToSecs(row.time)<=certLinkSentSecs) continue; // message is before/at cert link send → skip
+      }
 
-  /* 1. Pure emoji / short reaction */
-  if (/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}\u200d\ufe0f\s]+$/u.test(msg) && msg.length < 35)
-    return 'Greeting / Reaction';
-  /* ASCII emoticons */
-  if (/^([<>:;=8B][-o*']?[)\]([dDpPoO\/\\|@*3]{1,2}|:-?\)|:-?D|:-?P|;\)|xD)$/i.test(msg))
-    return 'Greeting / Reaction';
-
-  /* 2. Simple ACK / greeting */
-  if (/^(yes+|yep+|yup+|ya+|y|ok+|okay+|k|sure+|noted|alright|right|got\s*it|received|copy|roger|fine|understood|clear|confirmed|absolutely|definitely|certainly|exactly|of\s*course|for\s*sure|100%|perfect|done|agreed|affirmative|correct|true|no\s*doubt|yess+)[\s!.,]*$/i.test(m))
-    return 'Greeting / Acknowledgement';
-  if (/^(hi+|hey+|hello+|hlo+|helo+|hii+|heya+|howdy|gm|good\s*(morning|evening|afternoon|night|day)|namaste|namaskar|jai\s*hind|pranam|salam|sat\s*sri\s*akal|welcome|greetings|wassup|sup)[\s!.,]*$/i.test(m))
-    return 'Greeting / Acknowledgement';
-  if (/^(thank\s*(you|u)+|thanks+|ty|tq|thx|thankyou|dhanyavaad|shukriya|gracias|bye+|byee+|good\s*bye|see\s*you|take\s*care)[\s!.,]*$/i.test(m))
-    return 'Greeting / Acknowledgement';
-
-  /* 3. Audio Issue — no sound, mute, unmute */
-  if (/\b(can[\s']*t\s*hear|cannot\s*hear|not\s*(able\s*to\s*hear|hearing)|unable\s*to\s*hear|no\s*(audio|sound|voice)|audio\s*(not|issue|problem|off|cut|bad|poor)|sound\s*(not|issue|problem|off|cut|bad|poor)|voice\s*(not|issue|problem|cut|off)|mic\s*(not|issue|off|problem)|unmute\s*(me|please|yourself)?|please\s*unmute|you\s*(are|r)\s*muted|i\s*(am|m)\s*muted|volume\s*(low|not|issue|up|down|problem))\b/i.test(m))
-    return 'Audio Issue';
-
-  /* 4. Echo / Audio Quality — echo, disturbance, background noise */
-  if (/\b(echo(ing|es)?|i\s*can\s*(hear|feel)\s*(echo|reverb)|hear(ing)?\s*(echo|yourself|themselves|yourself|double)|when\s*(both|you|you\s*both)\s*(are|r|is)\s*(speak|talking|speaking)|background\s*(noise|sound|disturbance)|disturb(ance|ing|ed)|distortion|crackling?|breaking\s*up|voice\s*(breaking|crackling|quality|distort|robotic|robot|metallic)|static\s*(noise|sound)?|reverb(eration)?|feedback\s*noise|double\s*(voice|audio|sound)|audio\s*(distort|delay|lag|sync|reverb)|voice\s*(lag|delay|echo)|two\s*voice|sounding\s*(weird|strange|bad|off)|bad\s*(audio|sound|voice)|poor\s*(audio|sound|voice))\b/i.test(m))
-    return 'Audio Issue';
-
-  /* 5. Video / Screen Issue */
-  if (/\b(can[\s']*t\s*see|cannot\s*see|not\s*visible|visibility\s*(absent|issue|gone|problem|not|zero)|screen\s*(blur+|not\s*clear|issue|share\s*(not|off|problem)|blank|black|freeze|froze|gone|off)|video\s*(blur+|not\s*clear|issue|off|freeze|froze|quality|cut|gone)|you\s*(are|r)\s*(not\s*visible|invisible|gone|blurr?y)|blurr?(y|ed)|blur+|not\s*able\s*to\s*see|blank\s*screen|black\s*screen|display\s*(issue|problem)|picture\s*(blur|unclear|issue|not|gone)|video\s*cut)\b/i.test(m))
-    return 'Video / Screen Issue';
-
-  /* 6. Recording Request */
-  if (/\b(will\s*(we|i|you)\s*(get|receive|have)\s*(the\s*)?(record|recording|replay|rewatch)|can\s*(we|i)\s*(get|access|watch|download|have)\s*(the\s*)?(record|recording|replay)|please\s*(record|share.*record|send.*record)|recording\s*(available|link|access|please|share|provide|be\s*shared|be\s*given|will\s*be)|do\s*we\s*get\s*record|recorded\s*(class|session|video|lecture)\s*(available|link|shared)|send\s*(the\s*)?(record|recording|video|link)|where\s*(to|can\s*i)\s*(get|access|download|watch)\s*(record|recording|video))\b/i.test(m))
-    return 'Recording Request';
-
-  /* 7. Recorded Session Concern — is this live or pre-recorded */
-  if (/\b(is\s*(this|it)\s*(live|recorded|pre[-\s]?recorded|a\s*recording|pre-?record)|live\s*or\s*recorded|recorded\s*or\s*live|pre[-\s]?recorded|seems?\s*(like\s*)?(pre[-\s]?recorded|recorded|not\s*live)|this\s*(looks?|seems?|appears?)\s*(pre[-\s]?recorded|recorded|not\s*live)|why\s*(is|are)\s*(it|this)\s*(pre[-\s]?recorded)|not\s*live\s*session|is\s*it\s*a\s*(live|recorded)|appears?\s*to\s*be\s*recorded)\b/i.test(m))
-    return 'Recorded Session Concern';
-
-  /* 8. Repeat / Clarification Request */
-  if (/\b(please\s*repeat|pls\s*repeat|can\s*(you\s*)?(please\s*)?repeat|repeat\s*(please|once|again|that|this|once\s*more)?|could\s*you\s*repeat|missed\s*(that|the\s*last|it|part|bit|due|because|connection|session)|connection\s*(went|dropped|cut|issue|bad|lost)|power\s*(cut|went|issue)|i\s*(missed|lost\s*audio)|didn[\s']*t\s*(catch|hear|get)\s*(that|it|the\s*last)|please\s*(say|explain)\s*(again|that|once\s*more)|once\s*more\s*please|say\s*that\s*again|back\s*to\s*(previous|last)\s*(slide|topic|point)|can\s*you\s*go\s*back)\b/i.test(m))
-    return 'Repeat / Clarification Request';
-
-  /* 9. Notes / Material Request */
-  if (/\b((will\s*(you\s*)?(share|send|provide|give|upload)|(please\s*)?(share|send|provide|give|upload))\s*(the\s*)?(notes?|pdf|ppt|pptx|presentation|slides?|material|study\s*material|handout|worksheet|cheat\s*sheet|resource|link)|notes?\s*(will\s*(be\s*)?(provided|shared|given|sent|uploaded|available)|available|share\s*please|please)|do\s*(i|we)\s*(need\s*to\s*)?(make|take|write)\s*notes?|where\s*(will|do)\s*(you|we)\s*share\s*(notes?|pdf|ppt|material)|where\s*(to|can\s*i)\s*(get|access|find|download)\s*(notes?|pdf|ppt|material|slides?)|pdf\s*(please|share|available|link)|ppt\s*(share|please|available)|it\s*would\s*be\s*great\s*to\s*share\s*(notes?|material))\b/i.test(m))
-    return 'Notes / Material Request';
-
-  /* 10. Certificate Query */
-  if (/\b(certif(icate|ication|y)|will\s*(we|i|you)\s*(get|receive|have)\s*(a\s*)?(certif|certificate)|certificate\s*(available|provided|given|of\s*completion|for\s*attend|query|link|download|pdf)|is\s*(there\s*(a\s*)?)?(certif|certificate)|do\s*we\s*get\s*certif|can\s*(i|we)\s*(get|receive|have)\s*(a\s*)?(certif|certificate)|attendance.*certif|certif.*attendance|mark\s*attendance.*certif)\b/i.test(m))
-    return 'Certificate Query';
-
-  /* 11. Payment / Pricing Query */
-  if (/\b(price|pricing|cost|fees?|how\s*much|charges?|₹|\brs\.?\s*\d|inr|rupee|discount|offer|coupon|promo|is\s*it\s*free|free\s*(course|workshop|session)\?|paid\s*(course|workshop|program)|refund|emi|instalment|payment\s*(link|mode|option|gateway|page)|how\s*to\s*(pay|buy|purchase|enroll|enrol|register)|buy\s*(now|this|the\s*course|link)|purchase\s*(link|now|course)|enroll(ment)?\s*(link|now|process)|sign\s*up\s*(link|process|page)|registration\s*(fee|link|cost|page)|where\s*(to|do\s*i)\s*(buy|purchase|enroll|pay|register)|can\s*i\s*(buy|purchase|get)\s*(this|it|the\s*course))\b/i.test(m))
-    return 'Payment / Pricing Query';
-
-  /* 12. Access Issue — joining problems, link issues */
-  if (/\b(can[\s']*t\s*join|cannot\s*join|not\s*able\s*to\s*join|how\s*to\s*join|join(ing)?\s*(issue|problem|error|link|trouble|failed|not\s*working)|webinar\s*(id|link|pass|password)|link\s*(not\s*working|broken|expired|issue|problem|invalid)|where\s*(to|do\s*i)\s*(join|click|enter|go|find\s*the\s*link)|didn[\s']*t\s*(get|receive)\s*(the\s*)?(link|mail|email|otp|invitation)|not\s*received\s*(the\s*)?(link|mail|email|otp)|re\s*share\s*the\s*link|resend\s*(the\s*)?(link|invite))\b/i.test(m))
-    return 'Access Issue';
-  /* Location intro — very common in Indian webinars */
-  if (/^(joining\s+(from|via|on)\s+\w[\w\s]+|i\s*am\s*joining\s+from\s+\w+|i\s*joined\s+from\s+\w+|calling\s+from\s+\w+|attending\s+from\s+\w+|from\s+\w+[\s,]+\w+\s*(here)?|here\s*from\s+\w+|i\s*am\s*from\s+\w[\w\s]+)[\s!.,]*$/i.test(m))
-    return 'Access Issue';
-
-  /* 13. Language Request — language preference or location/state sharing */
-  if (/\b(in\s+(hindi|tamil|telugu|kannada|malayalam|marathi|gujarati|bengali|odia|punjabi|urdu)|(hindi|tamil|telugu|kannada|malayalam|marathi|gujarati)\s*(mein|me|mai|please|language|medium|class|version|chahiye|mein\s*batao)|please\s*(speak|explain|teach|present)\s*in\s*(hindi|tamil|telugu|kannada|english|regional)|language\s*(change|switch|preference|hindi|tamil|request)|hindi\s*(please|request|medium|mein)\b)\b/i.test(m))
-    return 'Language Request';
-  /* Indian state names often typed alone as location intro */
-  if (/^(tamilnadu|tamil\s*nadu|andhra\s*pradesh|andhra|telangana|karnataka|kerala|gujarat|rajasthan|punjab|haryana|uttar\s*pradesh|madhya\s*pradesh|west\s*bengal|bihar|jharkhand|odisha|assam|himachal\s*pradesh|uttarakhand|goa|manipur|meghalaya|nagaland|mizoram|tripura|arunachal|sikkim|up|mp|wb)[\s!.,]*$/i.test(m))
-    return 'Language Request';
-
-  /* 14. Readiness / Participation */
-  if (/^(ready+|readyyy+|all\s*set|present[\s!]*|i[\s']*m\s*ready|we\s*(are|r)\s*ready|yes\s*(sir|ma[\s']*am)?[\s!,.]*$|yes\s*ready|laptop\s*(ready|open|on)|pen\s*(ready|paper)|notebook\s*ready|ready\s*(to\s*(learn|start|go|begin))?|let[\s']*s\s*(go|start|begin|do\s*this)|lets\s*(go|start|begin)|let\s*us\s*(begin|start)|please\s*start\s*(now|sir)?|start\s*(now|please|sir)?|starting\?|are\s*we\s*starting|waiting\s*(eagerly|to\s*start|for\s*(class|session|you|sir))|eager\s*to\s*(learn|start|begin)|learning\s*time|class\s*(time|start)|begin\s*please|set\s*and\s*ready|all\s*ready)[\s!.,]*$/i.test(m))
-    return 'Readiness / Participation';
-  if (/\b(already\s*\d+\s*min(utes?)?\s*(gone|passed|late|over)|how\s*(many\s*)?(more\s*)?(min|hour|hr|time)|how\s*long\s*(more|left|still|to\s*(start|begin|go))|do\s*(we|i)\s*(need|require)\s*(a\s*)?(laptop|internet|specific\s*tool|any\s*tool|anything|device|pc|computer|mobile|phone)|what\s*do\s*(we|i)\s*need\s*(for|to\s*attend|to\s*follow\s*along)|attendance\s*(mark|sheet|portal|link|register|how\s*to\s*mark)|how\s*(to|do\s*i)\s*mark\s*attendance|mark\s*my\s*attendance)\b/i.test(m))
-    return 'Readiness / Participation';
-
-  /* 15. Positive Feedback / Reaction */
-  if (/^(wow+|woww+|amazing+|awesome+|superb+|fantastic+|brilliant+|excellent+|outstanding+|mindblowing|mind\s*blown?|love\s*(it|this)|loving\s*it|great+|nice+|cool+|incredible+|fabulous+|spectacular+|phenomenal+|extraordinary+|wonderful+|magnificent+|terrific+|mast+|zabardast+|bahut\s*(accha|badiya|badhiya|mast|achha)|very\s*(good|nice|helpful|useful|informative)|so\s*(good|nice|helpful|useful)|this\s*is\s*(great|amazing|awesome|fantastic|wonderful)|well\s*done|sir\s*(you\s*(are|r)|is)\s*(amazing|great|awesome|legend|hero|best)|knowledgeable|informative|very\s*informative|it[\s']*s\s*(helpful|useful|great|amazing|awesome|wonderful|fantastic)|really\s*(helpful|useful|great|amazing|interesting|inspiring)|super+|superbbb+|clapping|standing\s*ovation|round\s*of\s*applause|fire+|great\s*(session|class|workshop|content|teaching|explanation)|eye\s*opener|insightful|game[\s-]changer|legend+|legendary|you[\s']*re\s*(great|amazing|awesome|the\s*best)|very\s*helpful)[\s!.,🔥💯👏]*$/i.test(m))
-    return 'Positive Feedback / Reaction';
-  if (/\b(this\s*(session|workshop|class|content|webinar)\s*is\s*(amazing|great|good|excellent|helpful|awesome|wonderful|fantastic|valuable|insightful|eye[\s-]opening)|great\s*(session|workshop|class|content|teaching|explanation|work|job)|i\s*(like|love|enjoy(ing)?|appreciate)\s*(this|it|the\s*(session|workshop|class|content|webinar))|very\s*(helpful|useful|informative|knowledgeable|interesting|well\s*explained)|well\s*(explained|presented|taught|done))\b/i.test(m))
-    return 'Positive Feedback / Reaction';
-
-  /* 16. Excessive Marketing / Selling Complaint */
-  if (/\b(stop\s*(sell(ing)?|promot(ing)?|market(ing)?|the\s*sell|the\s*promo)|please\s*start\s*(teach(ing)?|class|session|now|the\s*class)|too\s*much\s*(sell(ing)?|promot(ion|ing)?|market(ing)?|hype|pushing)|just\s*(promot(ion|ing)?|market(ing)?|sell(ing)?)|only\s*(sell(ing)?|promot(ion|ing)?)|upsell(ing)?|just\s*upsell|enough\s*(sell(ing)?|promot(ion|ing)?|market(ing)?|hype)|wasting\s*time\s*(on\s*)?(sell|promot|market|hype)|stop\s*the\s*(sell|promo|market|push)|less\s*(teach|content|learning|knowledge)|no\s*teaching|nothing\s*(taught|learnt|learned)|please\s*(start\s*(the\s*)?(class|session|teaching)|get\s*to\s*the\s*(point|content|class))|affiliate\s*(market|gimmick|link|scheme)|waste\s*(of\s*)?(time|money)\s*(promoting|selling|marketing))\b/i.test(m))
-    return 'Excessive Marketing / Selling Complaint';
-
-  /* 17. Negative Feedback / Complaint */
-  if (/\b(boring+|getting\s*(boring|repetitive|long|too\s*long)|very\s*(basic|slow|obvious|repetitive|common)|too\s*(basic|slow|repetitive|obvious|simple|common|generic)|already\s*know(\s*(this|all\s*this|these|about\s*this))?|i\s*know\s*(this|all\s*this|these|about\s*this|all\s*of\s*this)|nothing\s*new|no\s*new\s*(content|things|topics|information|knowledge)|misleading|false\s*promis(e|ing)|scam|fraud|cheating|waste\s*of\s*(time|money|everyone[\s']*s\s*time)|not\s*(helpful|useful|worth\s*(it)?|good|learning\s*anything|teaching|valuable)|disappointed|disappointing|expected\s*more|not\s*what\s*(i|we)\s*expected|this\s*is\s*not\s*(helpful|useful|good|what\s*i\s*expected)|lot\s*of\s*time\s*(wasted|wasting)|please\s*start\s*(now|teaching)|pls\s*start\s*(now|teaching)|really\s*basic|very\s*elementary)\b/i.test(m))
-    return 'Negative Feedback / Complaint';
-
-  /* 18. Career / Eligibility Query */
-  if (/\b(freshers?|i\s*am\s*a?\s*fresher|just\s*graduated|recently\s*graduated|b\.?\s*tech\s*(student|cse|it|ece|ee|civil|mech|final\s*year|grad|pass)?|bca|mca\s*(student|grad)?|mba\s*(student|fresher|grad)?|m\.?\s*tech|ba\s*(pass|hons|student|grad)?|class\s*(10|12|x|xii)th?\s*(student|pass|grad)?|12th\s*(pass|grad|student)|high\s*school|school\s*student|college\s*student|is\s*it\s*(good|useful|suitable|recommended|right|ok)\s*(for\s*)?(fresher|student|beginner|non[\s-]tech|non\s*technical|non[\s-]it)|can\s*(freshers?|students?|beginners?|non[\s-]tech)\s*(also\s*)?(join|attend|benefit|take|learn|do\s*this|participate)|i\s*am\s*a\s*(student|fresher|beginner|non[\s-]?techie|non[\s-]?technical|housewife|homemaker|retired)|am\s*i\s*eligible\s*(to\s*(join|attend|participate|enroll)|for\s*(this|the\s*course))|eligible\s*(for\s*this|to\s*(join|attend)|to\s*take)\b)\b/i.test(m))
-    return 'Career / Eligibility Query';
-
-  /* 19. Course Fit / Use-Case Query */
-  if (/\b(is\s*(it|this|the\s*(course|workshop|program|session|training))\s*(beneficial|useful|helpful|good|suitable|applicable|relevant|for\s*(me|my|our|a|an))|will\s*(this|it)\s*(help|benefit|be\s*useful|be\s*helpful|be\s*good|be\s*relevant)\s*(for\s*(me|my|our)|in\s*(my|our))|for\s*(what|which)\s*(type|kind|sort)\s*of\s*(person|people|role|job|profession|work|industry)|can\s*(i|we)\s*(use|apply|implement|utilize|adopt)\s*(this|it|these\s*(tools?|skills?|techniques?))?\s*(in|for|at)\s*(my|our)\s*(work|job|field|company|project|business|industry|role)|how\s*(will|can)\s*(this|it)\s*(help|benefit|be\s*useful|be\s*applicable)\s*(me|us|in|for)|use[\s-]?case\s*(for|of)\s*this|applicable\s*(for|to)\s*(my|our)|relevant\s*(for|to)\s*(my|our))\b/i.test(m))
-    return 'Course Fit / Use-Case Query';
-
-  /* 20. Duration / Time Commitment Query */
-  if (/\b(how\s*(long|many\s*(hours?|minutes?|mins?))|how\s*much\s*time|(duration|length)\s*(of|is|for|left|remaining)|when\s*does\s*(it|this|the\s*(session|workshop|class|webinar))\s*end|what\s*time\s*(does|will)\s*(it|this|the\s*(session|workshop|class))\s*(end|finish|get\s*over|be\s*over)|ends?\s*(at|by)\s*\d|finish(es)?\s*(at|by)\s*\d|over\s*by\s*\d|\d\s*(hour|hrs?|hr|min|mins?)\s*(course|session|workshop|training|duration|long)|\d[-–]\d\s*(hour|hrs?|hr|min|mins?)|total\s*(duration|time|hours?)\s*of\s*(the\s*)?(session|workshop|course)|how\s*many\s*(hours?|min)\s*(is|are|will)\s*(this|the\s*(session|workshop|course|training)))\b/i.test(m))
-    return 'Duration / Time Commitment Query';
-
-  /* 21. Need Support / Same Question */
-  if (/\b(same\s*(question|doubt|query|issue|problem|concern|here|for\s*me)|i\s*(also|too)\s*(have\s*(same|the\s*same|this\s*same)|want\s*to\s*know\s*this|am\s*also\s*(wondering|asking|having))|me\s*too\s*(have|has\s*same|same)|waiting\s*for\s*(your\s*)?(reply|response|answer|feedback)|please\s*(answer|respond|reply)\s*(my|this|to\s*my|the|sir)|can\s*(someone|anyone)\s*(answer|help|reply|respond|address)|can\s*you\s*please\s*(answer|respond|reply|help|address\s*this)|\+1\s*(question|doubt|issue|same|for\s*this)|anyone\s*(else\s*)?(having|with)\s*(same|this|the\s*same)|same\s*issue\s*here)\b/i.test(m))
-    return 'Need Support Reply';
-
-  /* 22. Camera / Participation Query */
-  if (/\b(do\s*i\s*(have\s*to|need\s*to|must)\s*(open|turn\s*(on|off)|switch\s*(on|off)|show|enable|use)\s*(my\s*)?(camera|webcam|video|cam)|camera\s*(on|off|required|needed|mandatory|optional)|is\s*(camera|webcam|video)\s*(required|needed|mandatory|on|off|must)|can\s*i\s*(keep|turn)\s*(my\s*)?(camera|webcam|video)\s*(off|on|closed|open))\b/i.test(m))
-    return 'Camera / Participation Query';
-
-  return null;
-}
-
-/* AI CLASSIFICATION */
-const SYS_PROMPT = `You classify messages from a live Zoom webinar chat of an AI tools workshop in India (audience: working professionals, students; mix of English and Hinglish).
-
-USE EXACTLY ONE OF THESE CATEGORY NAMES:
-1. "Greeting / Acknowledgement" — yes/ok/sure/hi/hello/thanks/bye/noted/got it
-2. "Greeting / Reaction" — emoji-only or very short (wow, lol, 🔥, 👏)
-3. "Positive Feedback / Reaction" — great/awesome/mast/zabardast/very helpful/loved it/superb session
-4. "Audio Issue" — can't hear, echo, disturbance, voice quality bad, background noise, muted, no sound
-5. "Video / Screen Issue" — can't see, blurry, visibility absent, screen share problem, blank/black screen
-6. "Access Issue" — can't join, link issue, webinar ID trouble. ALSO "Joining from [city]" / "I am from Mumbai"
-7. "Recording Request" — asking if/when recording will be shared, requesting recording link
-8. "Recorded Session Concern" — questioning if this is live or pre-recorded session
-9. "Certificate Query" — asking about certificate of attendance or completion
-10. "Payment / Pricing Query" — asking price/cost/fees/how to buy/enroll. ALSO profession replies ("Freelancer", "CA", "Engineer", "MBA")
-11. "Language Request" — requesting Hindi/Tamil/regional language. ALSO state names alone ("Tamil Nadu", "UP")
-12. "Notes / Material Request" — asking for notes, PDF, slides, presentation to be shared
-13. "Course Fit / Use-Case Query" — asking if this course/workshop is relevant for their role/domain
-14. "Career / Eligibility Query" — sharing education (BTech, fresher, student) or asking if eligible to join
-15. "Duration / Time Commitment Query" — asking how long, time estimates given ("2-3 hrs"), when it ends
-16. "Readiness / Participation" — expressing readiness, laptop ready, present, let's go, please start
-17. "Repeat / Clarification Request" — asking to repeat something, missed due to connection/power issue
-18. "Negative Feedback / Complaint" — boring, very basic, misleading, waste of time, disappointed
-19. "Excessive Marketing / Selling Complaint" — stop selling/promoting, please start teaching, too much promo
-20. "Need Support Reply" — same question, same doubt, +1, waiting for reply, please answer this
-21. "Camera / Participation Query" — asking about camera on/off requirement
-22. "Other" — truly does not fit any of the above 21 categories
-
-KEY EXAMPLES (learn from these):
-"I can hear Echo when both of you are speaking" → "Audio Issue"
-"Visibilty absent" → "Video / Screen Issue"  
-"your voice is echoing" → "Audio Issue"
-"I can feel echo" → "Audio Issue"
-"background noise" → "Audio Issue"
-"You are not visible" → "Video / Screen Issue"
-"screen is blurred" → "Video / Screen Issue"
-"Joining from Varanasi" → "Access Issue"
-"I am joining form Dharamshala" → "Access Issue"
-"Tamil Nadu" → "Language Request"
-"tamilnadu" → "Language Request"
-"Freelancer" → "Payment / Pricing Query"
-"Chemical Engineer" → "Payment / Pricing Query"
-"btech student" → "Career / Eligibility Query"
-"class 10th" → "Career / Eligibility Query"
-"readyyy" → "Readiness / Participation"
-"Let's go!" → "Readiness / Participation"
-"same question" → "Need Support Reply"
-"SAME QUESTION" → "Need Support Reply"
-"is this recorded or live" → "Recorded Session Concern"
-"seems this is a pre recorded video" → "Recorded Session Concern"
-"will we get recording" → "Recording Request"
-"recording available or not" → "Recording Request"
-"2-3 hrs" → "Duration / Time Commitment Query"
-"30 min?" → "Duration / Time Commitment Query"
-"can I get certificate?" → "Certificate Query"
-"Notes will be provided?" → "Notes / Material Request"
-"is it beneficial for me" → "Course Fit / Use-Case Query"
-"Please start now enough selling" → "Excessive Marketing / Selling Complaint"
-"very basic" → "Negative Feedback / Complaint"
-"I want in hindi" → "Language Request"
-"please repeat" → "Repeat / Clarification Request"
-"i missed the last part due to power cut" → "Repeat / Clarification Request"
-
-Return ONLY a valid JSON array of exactly N strings, same order as input messages.
-No markdown, no explanation, no preamble. Just the raw JSON array.`;
-
-async function apiBatch(msgs) {
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514', max_tokens: 1024,
-      system: SYS_PROMPT,
-      messages: [{ role: 'user', content: `Classify these ${msgs.length} messages:\n${JSON.stringify(msgs)}` }]
-    })
-  });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const data = await resp.json();
-  const raw = (data.content || []).map(c => c.text || '').join('');
-  const jm = raw.match(/\[[\s\S]*\]/);
-  if (!jm) throw new Error('No JSON in response');
-  const arr = JSON.parse(jm[0]);
-  if (!Array.isArray(arr)) throw new Error('Not array');
-  return arr;
-}
-
-async function classifyAll(msgTexts, onBatchDone) {
-  const BATCH = 80, CONC = 4;
-  const results = new Array(msgTexts.length).fill('Other');
-  const aiNeeded = [];
-
-  for (let i = 0; i < msgTexts.length; i++) {
-    const q = quickClassify(msgTexts[i]);
-    if (q) results[i] = q; else aiNeeded.push(i);
-  }
-
-  const ruleCount = msgTexts.length - aiNeeded.length;
-  const rulePct = Math.round((ruleCount / msgTexts.length) * 100);
-  addLog(`⚡ Rule-based: ${ruleCount.toLocaleString()} (${rulePct}%) | AI queue: ${aiNeeded.length.toLocaleString()}`, 'info');
-
-  if (aiNeeded.length === 0) { onBatchDone(1, 1); return results; }
-
-  const batches = [];
-  for (let b = 0; b < aiNeeded.length; b += BATCH)
-    batches.push({ idxs: aiNeeded.slice(b, b + BATCH), texts: aiNeeded.slice(b, b + BATCH).map(i => msgTexts[i]) });
-
-  let done = 0;
-  for (let i = 0; i < batches.length; i += CONC) {
-    await Promise.all(batches.slice(i, i + CONC).map(async (batch) => {
-      for (let retry = 0; retry < 3; retry++) {
-        try {
-          const types = await apiBatch(batch.texts);
-          batch.idxs.forEach((origIdx, j) => { results[origIdx] = types[j] || 'Other'; });
-          break;
-        } catch (err) {
-          if (retry >= 2) addLog(`⚠ Batch failed (using Other)`, 'warn');
-          else await sleep((retry + 1) * 1000);
+      // STEP 2 — exclusion check (with optional bypass)
+      if(cat.excl&&cat.excl.length){
+        const excluded=cat.excl.some(p=>p.test(row.chat));
+        if(excluded){
+          const bypassed=cat.exclBypass&&cat.exclBypass.some(p=>p.test(row.chat));
+          if(!bypassed) continue;
         }
       }
-      done++;
-      onBatchDone(done, batches.length);
-    }));
+
+      // STEP 3 — require-complaint check
+      // For "recorded": req acts as a complaint GATE gated by excl (old behaviour)
+      // For "payment" / "audio": req acts as a MANDATORY gate — message must contain
+      //   at least one complaint signal regardless of excl
+      if(cat.req&&cat.req.length){
+        const hasComplaintSignal=cat.req.some(p=>p.test(row.chat));
+        if(cat.id==='recorded'){
+          // recorded: only apply req gate if excluded patterns also fired
+          const excluded=cat.excl&&cat.excl.some(p=>p.test(row.chat));
+          if(excluded&&!hasComplaintSignal) continue;
+        } else {
+          // payment / audio: always require at least one complaint signal
+          if(!hasComplaintSignal) continue;
+        }
+      }
+
+      issues.push({...row,category:cat.id,catName:cat.name,badge:cat.badge,include:true});
+      break;
+    }
   }
-  return results;
+  return issues;
 }
 
-function addLog(msg, cls = '') {
-  const el = document.getElementById('log');
-  const sp = document.createElement('span'); sp.className = 'log-line ' + cls;
-  const n = new Date();
-  const t = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`;
-  sp.textContent = `[${t}]  ${msg}`; el.appendChild(sp); el.scrollTop = el.scrollHeight;
+// ── Handler Name Configuration ──────────────────────────────────────────
+// Single source of truth: handlerNamesInput in the upload view
+function getHandlerNamesArray(){
+  const raw=document.getElementById('handlerNamesInput')?.value||'Aditya Be10x';
+  return raw.split(',').map(n=>n.trim()).filter(Boolean);
 }
-function setProgress(pct, label) {
-  document.getElementById('prog-bar').style.width = Math.min(pct, 100) + '%';
-  document.getElementById('prog-pct').textContent = Math.round(Math.min(pct, 100)) + '%';
-  if (label) document.getElementById('prog-label').textContent = label;
+
+// true if adminName matches ANY of the configured handler names (case-insensitive)
+function isHandler(adminName){
+  if(!adminName) return false;
+  const lo=adminName.toLowerCase();
+  return getHandlerNamesArray().some(h=>h.toLowerCase()===lo);
 }
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-async function startAnalysis() {
-  if (!txtContent || !csvContent) return;
-  document.getElementById('btn-run').disabled = true;
-  ['btn-dl','btn-reset'].forEach(id => document.getElementById(id).style.display = 'none');
-  document.getElementById('progress-wrap').classList.add('visible');
-  ['stats-grid','cat-wrap','success-banner'].forEach(id => document.getElementById(id).classList.remove('visible'));
-  document.getElementById('log').innerHTML = '';
-  finalRows = null;
+// Comma-joined string for display labels and XLSX headers
+function getHandlerName(){return getHandlerNamesArray().join(', ');}
 
-  try {
-    setProgress(2, 'Parsing Zoom save chat…');
-    addLog('Parsing Zoom save chat (.txt)…');
-    const msgs = parseZoomChat(txtContent);
-    addLog(`✔ ${msgs.length.toLocaleString()} messages found`, 'ok');
-
-    setProgress(8, 'Parsing attendee report…');
-    addLog('Parsing attendee report (.csv)…');
-    const attData = parseAttendeeCsv(csvContent);
-    if (!attData) throw new Error('Could not parse attendee CSV');
-    const uniqueAtt = Object.keys(attData.timeByKey).length;
-    addLog(`✔ ${uniqueAtt.toLocaleString()} unique attendees (multi-session merged)`, 'ok');
-
-    setProgress(14, 'Matching names…');
-    addLog('Matching sender names → time-in-session…');
-    let matched = 0;
-    const times = msgs.map(m => { const t = getTime(m.name, attData); if (t !== '') matched++; return t; });
-    addLog(`✔ ${matched.toLocaleString()} / ${msgs.length.toLocaleString()} matched (${Math.round(matched/msgs.length*100)}%)`, 'ok');
-
-    setProgress(18, 'Classifying…');
-    const msgTexts = msgs.map(m => m.msg);
-    const totalBatch = Math.ceil(msgs.length / 80);
-    addLog(`Starting classification — est. ${totalBatch} AI batches (4 concurrent)…`);
-
-    const issueTypes = await classifyAll(msgTexts, (done, total) => {
-      setProgress(18 + Math.round((done / total) * 78), `Classifying… batch ${done}/${total}`);
-      if (done % 5 === 0 || done === total) addLog(`✔ Batch ${done}/${total} done`, 'ok');
-    });
-
-    setProgress(98, 'Building output…');
-    finalRows = msgs.map((m, i) => ({ ts: m.ts, name: m.name, msg: m.msg, issue: issueTypes[i] || 'Other', time: times[i] }));
-
-    const catCounts = {};
-    for (const r of finalRows) catCounts[r.issue] = (catCounts[r.issue] || 0) + 1;
-    const otherPct = Math.round(((catCounts['Other'] || 0) / finalRows.length) * 100);
-    const rulePct2 = 100 - otherPct;
-
-    setProgress(100, 'Done!');
-    addLog(`✅ Done! ${finalRows.length.toLocaleString()} rows — "Other" now ${catCounts['Other']||0} (${otherPct}%)`, 'ok');
-
-    document.getElementById('s-msgs').textContent  = msgs.length.toLocaleString();
-    document.getElementById('s-att').textContent   = uniqueAtt.toLocaleString();
-    document.getElementById('s-match').textContent = matched.toLocaleString();
-    document.getElementById('s-rule').textContent  = rulePct2 + '%';
-    document.getElementById('stats-grid').classList.add('visible');
-
-    const grid = document.getElementById('cat-grid'); grid.innerHTML = '';
-    Object.entries(catCounts).sort((a,b) => b[1]-a[1]).forEach(([cat, cnt]) => {
-      const d = document.createElement('div'); d.className = 'cat-item';
-      d.innerHTML = `<span class="cat-name">${cat}</span><span class="cat-count">${cnt.toLocaleString()}</span>`;
-      grid.appendChild(d);
-    });
-    document.getElementById('cat-wrap').classList.add('visible');
-
-    document.getElementById('ready-count').textContent = finalRows.length.toLocaleString();
-    document.getElementById('success-banner').classList.add('visible');
-    document.getElementById('btn-dl').style.display    = 'inline-flex';
-    document.getElementById('btn-reset').style.display = 'inline-flex';
-
-  } catch (err) {
-    addLog(`❌ Error: ${err.message}`, 'err');
-    setProgress(0, 'Error occurred');
-  } finally {
-    document.getElementById('btn-run').disabled = false;
+// Called on input change: refresh pills, re-run analysis if data loaded
+function updateHandlerPills(){
+  const names=getHandlerNamesArray();
+  // Pills in upload view
+  const pills=document.getElementById('handlerPills');
+  if(pills) pills.innerHTML=names.map(n=>`<span class="handler-pill"><span class="handler-pill-dot"></span>${esc(n)}</span>`).join('');
+  // Chips in handler view
+  const disp=document.getElementById('handlerNamesDisplay');
+  if(disp) disp.innerHTML=names.map(n=>`<span class="handler-chip"><span class="handler-dot"></span>${esc(n)}</span>`).join('');
+  // Mandatory handler name label
+  const mhn=document.getElementById('mand-handler-name');
+  if(mhn) mhn.textContent=getHandlerName();
+  // Re-run everything if data is loaded
+  if(allChats.length){
+    const {cleanChats,spamChats:sp}=detectAndRemoveSpam(allChats);
+    spamChats=sp;
+    // Re-detect cert link with updated handler names
+    const certRow=allChats.find(r=>
+      isHandler(r.admin)&&
+      (r.replyTo.toLowerCase()==='everyone'||r.replyTo.toLowerCase()==='all')&&
+      r.chat.toLowerCase().includes('certx.in/submit')
+    );
+    certLinkSentSecs=certRow?timeToSecs(certRow.time):null;
+    allIssues=detectIssues(cleanChats);
+    handlerRows=computeHandlerRows();
+    updateNavCounts();updateStats();populateIssueFilter();buildCatGrid();
+    renderChatTable();renderIssueTable();renderHandlerTable();
+    checkMandatory();renderMandatoryView();
   }
 }
-
-function csvEsc(v) {
-  if (v == null) return ''; const s = String(v);
-  return (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r'))
-    ? '"' + s.replace(/"/g,'""') + '"' : s;
-}
-function downloadCSV() {
-  if (!finalRows) return;
-  const csv = ['Timestamp,Name,Actual chat,Issue type,Time in session',
-    ...finalRows.map(r => [csvEsc(r.ts),csvEsc(r.name),csvEsc(r.msg),csvEsc(r.issue),csvEsc(r.time)].join(','))].join('\n');
-  const url = URL.createObjectURL(new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'}));
-  const a = document.createElement('a');
-  a.href = url; a.download = `zoom_analysed_${new Date().toISOString().slice(0,10)}.csv`; a.click();
-  URL.revokeObjectURL(url);
-  addLog('⬇ CSV downloaded!', 'info');
-}
-function resetTool() {
-  txtContent = csvContent = finalRows = null;
-  ['txt','csv'].forEach(t => {
-    document.getElementById('zone-'+t).classList.remove('loaded','drag');
-    document.getElementById('fname-'+t).textContent = '';
-    document.getElementById('file-'+t).value = '';
+function computeHandlerRows(){
+  return allChats.filter(r=>{
+    if(!isHandler(r.admin)) return false;
+    const rt=r.replyTo.toLowerCase();
+    return rt!=='everyone'&&rt!=='all'&&rt!=='hosts and panelists';
   });
-  ['progress-wrap','stats-grid','cat-wrap','success-banner'].forEach(id => document.getElementById(id).classList.remove('visible'));
-  ['btn-dl','btn-reset'].forEach(id => document.getElementById(id).style.display='none');
-  document.getElementById('log').innerHTML = '';
-  setProgress(0,'');
-  document.getElementById('btn-run').disabled = true;
 }
+function recomputeHandler(){handlerRows=computeHandlerRows();document.getElementById('nc-handler').textContent=handlerRows.length;document.getElementById('tag-handler').textContent=handlerRows.length+' replies';renderHandlerTable();if(allChats.length){checkMandatory();renderMandatoryView();}}
+
+function loadFile(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>processText(ev.target.result);r.readAsText(f,'UTF-8');}
+function handleDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('drag');const f=e.dataTransfer.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>processText(ev.target.result);r.readAsText(f,'UTF-8');}
+function parseFromPaste(){const t=document.getElementById('pasteArea').value;if(!t.trim()){alert('Please paste chat content first.');return;}processText(t);}
+
+// ═══════════════════════════════════════════
+//  SPAM DETECTION
+//  Per-sender: same normalised message sent
+//  more than once within 120s = spam.
+//  Handler messages are never spam-filtered.
+// ═══════════════════════════════════════════
+function detectAndRemoveSpam(rows){
+  // (uses global timeToSecs and isHandler)
+  const norm=t=>t.toLowerCase().trim().replace(/\s+/g,' ');
+  const WINDOW=120; // seconds
+
+  // Build per-sender message list (skip all configured handlers)
+  const senderMsgs={};
+  rows.forEach((r,i)=>{
+    if(isHandler(r.admin)) return; // handlers never counted as spam
+    const k=r.admin.toLowerCase();
+    (senderMsgs[k]=senderMsgs[k]||[]).push({idx:i,nm:norm(r.chat),secs:timeToSecs(r.time)});
+  });
+
+  // Flag spam indices
+  const spamIdx=new Set();
+  Object.values(senderMsgs).forEach(msgs=>{
+    const lastKept={}; // normMsg → secs of last kept
+    msgs.forEach(({idx,nm,secs})=>{
+      const last=lastKept[nm];
+      if(last!==undefined&&(secs-last)<=WINDOW){
+        spamIdx.add(idx); // duplicate within window → spam
+      } else {
+        lastKept[nm]=secs; // new or outside window → keep
+      }
+    });
+  });
+
+  return{
+    cleanChats:rows.filter((_,i)=>!spamIdx.has(i)),
+    spamChats: rows.filter((_,i)=>spamIdx.has(i))
+  };
+}
+
+function processText(text){
+  const parsed=parseZoomChat(text);
+  if(!parsed.length){alert('No valid chat rows found.\n\nSupported header formats:\n"HH:MM:SS From Name to Destination:"\n"YYYY-MM-DD HH:MM:SS From Name to Destination:"\nwith the message on the next line.');return;}
+  // Detect spam — allChats keeps ALL messages; cleanChats feeds issue detection only
+  const {cleanChats,spamChats:sp}=detectAndRemoveSpam(parsed);
+  allChats=parsed;        // ← full unfiltered set — Total Chat shows everything
+  spamChats=sp;           // ← spam list for reference / stats
+  chatTabMode='clean';
+
+  // Find when handler first sent the certificate link to Everyone
+  // Only messages AFTER this timestamp will be considered cert issues
+  const certRow=parsed.find(r=>
+    isHandler(r.admin) &&
+    (r.replyTo.toLowerCase()==='everyone'||r.replyTo.toLowerCase()==='all') &&
+    r.chat.toLowerCase().includes('certx.in/submit')
+  );
+  certLinkSentSecs = certRow ? timeToSecs(certRow.time) : null;
+
+  allIssues=detectIssues(cleanChats); // ← issues only from non-spam messages
+  handlerRows=computeHandlerRows();
+  updateNavCounts();updateStats();populateIssueFilter();buildCatGrid();
+  renderChatTable();renderIssueTable();renderHandlerTable();
+  checkMandatory();
+  renderMandatoryView();
+  document.getElementById('exportBar').style.display='block';
+  document.getElementById('hdrStatus').textContent=parsed.length.toLocaleString()+' messages loaded';
+  switchView('chat');
+}
+
+function loadDemo(){
+  const d=`10:46:56 From ved mendapara to Hosts and panelists:\n\thello ???\n10:47:51 From Aditya Be10x to Everyone:\n\tWe'll be starting at 11:00 AM!\n10:53:07 From Aditya Be10x to Rakesh Yadav, Hosts and panelists:\n\tAll of you will get the certificate after the workshop.\n11:01:12 From Rahul Sharma to Hosts and panelists:\n\tAudio is not coming properly\n11:02:45 From Priya Patel to Hosts and panelists:\n\tVideo is very blurry, can't see the slides\n11:03:00 From Aditya Be10x to Priya Patel, Hosts and panelists:\n\tTry adjusting your video quality in settings\n11:04:30 From Suresh Kumar to Hosts and panelists:\n\tThis is a recorded session, not live\n11:05:10 From Aditya Be10x to Suresh Kumar, Hosts and panelists:\n\tThis is 100% live right now\n11:06:45 From Anita Singh to Hosts and panelists:\n\tWill we get the recording after this session?\n11:07:20 From Vikram Reddy to Hosts and panelists:\n\tMy internet is lagging badly, keeps buffering\n11:08:55 From Meera Joshi to Hosts and panelists:\n\tAudio is muted, can't hear anything\n11:10:05 From Rohit Gupta to Hosts and panelists:\n\tScreen is completely blurry\n11:11:20 From Kavya Nair to Hosts and panelists:\n\tPayment done but not able to login\n11:13:35 From Deepak Tiwari to Hosts and panelists:\n\tSame video was shown last week, pre-recorded\n11:15:45 From Arjun Mehta to Hosts and panelists:\n\tVoice is breaking, not audible at all\n11:17:35 From Pooja Verma to Hosts and panelists:\n\tNetwork is too slow, keeps freezing`;
+  document.getElementById('pasteArea').value=d;processText(d);
+}
+
+const ACOLORS=['#6366f1','#22d3ee','#10b981','#f59e0b','#ef4444','#ec4899','#a78bfa','#34d399','#fb923c','#38bdf8'];
+
+// ═══════════════════════════════════════════
+//  MANDATORY MESSAGES
+//  customMandatoryMsgs = null → use DEFAULT_MANDATORY_MSGS
+//  Upload a CSV → parses into customMandatoryMsgs
+//  getActiveMandatoryMsgs() always returns the live list
+// ═══════════════════════════════════════════
+let customMandatoryMsgs = null; // set when user uploads a CSV
+
+function getActiveMandatoryMsgs(){
+  return customMandatoryMsgs || DEFAULT_MANDATORY_MSGS;
+}
+
+// ── CSV parsing utilities ─────────────────────────────────────────────
+
+// Full CSV parser — handles multi-line quoted fields correctly.
+// Does NOT pre-split on newlines (that breaks multi-line cells).
+function parseFullCSV(text){
+  const rows=[];
+  let curRow=[],curField='',inQuote=false;
+  const t=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  for(let i=0;i<=t.length;i++){
+    const c=i<t.length?t[i]:'\n'; // sentinel end
+    const nx=t[i+1];
+    if(c==='"'){
+      if(inQuote&&nx==='"'){curField+='"';i++;}  // escaped ""
+      else inQuote=!inQuote;
+    } else if(c===','&&!inQuote){
+      curRow.push(curField.trim());curField='';
+    } else if(c==='\n'&&!inQuote){
+      curRow.push(curField.trim());
+      if(curRow.some(f=>f.length>0)) rows.push(curRow);
+      curRow=[];curField='';
+    } else {
+      curField+=c;
+    }
+  }
+  return rows;
+}
+
+function generateMandatorySnippet(msg){
+  const m=msg.trim();
+  // Pure URL lines → use domain+path (very unique match key)
+  if(/^https?:\/\/[^\s]+\s*$/.test(m)){
+    return m.replace(/^https?:\/\//,'').trim();
+  }
+  // Message that STARTS with a URL (no leading text)
+  const urlStart=m.match(/^https?:\/\/[^\s]+/);
+  if(urlStart) return urlStart[0].replace(/^https?:\/\//,'');
+  // Text message (may have embedded URLs — use text opening, not embedded URL)
+  const clean=m.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}]/gu,'')
+               .replace(/^[^a-zA-Z0-9']+/,'')
+               .replace(/\s+/g,' ')
+               .trim();
+  return clean.substring(0,60).trim();
+}
+
+function autoCategorizeMandatory(msg){
+  const lo=msg.toLowerCase();
+  if(/certx|certificate/.test(lo)) return 'Closing';
+  if(/workshop-review|feedback|review/.test(lo)) return 'Closing';
+  if(/whatsapp/.test(lo)) return 'Closing';
+  if(/linkedin|tag @be10x/.test(lo)) return 'Closing';
+  if(/bonus|be10xbonus/.test(lo)) return 'Closing';
+  if(/career accelerator|inner circle|aica/.test(lo)) return 'Sales / AICA';
+  if(/payment issue|alternate.*pay|still facing payment/.test(lo)) return 'Sales / AICA';
+  if(/notebooklm|wisprflow|stitch\.with|aistudio|gemini\.google|claude\.ai|julius\.ai|chatgpt|perplexity|n8n\.io|samantha/.test(lo)) return 'Tool Link';
+  if(/important information|stay until the end|ai-tools-workshop-ref|referral/.test(lo)) return 'Engagement';
+  if(/kicking off|welcome.*workshop|workshop everyone/.test(lo)) return 'Warmup / Start';
+  if(/audio|blur|video quality|rejoin/.test(lo)) return 'Tech Support';
+  return 'General';
+}
+
+function parseMandatoryCSV(csvText){
+  // Use full multi-line CSV parser (handles quoted fields with internal newlines)
+  const rows=parseFullCSV(csvText);
+  if(rows.length<2) return null;
+
+  const header=rows[0].map(h=>h.toLowerCase().replace(/['"]/g,'').trim());
+
+  // Message column: explicit header OR longest-content column
+  let msgIdx=header.findIndex(h=>/^(message|msg|chat|text|content)$/.test(h));
+  if(msgIdx===-1){
+    const sums=new Array(header.length).fill(0);
+    rows.slice(1,20).forEach(r=>r.forEach((v,i)=>sums[i]+=v.length));
+    msgIdx=sums.indexOf(Math.max(...sums));
+  }
+  // Mode column
+  const modeIdx=header.findIndex(h=>/^mode$/.test(h));
+  // Column 0 — often unlabeled but has role labels (Tool 1, Tool 2, Important, etc.)
+  const col0IsLabelCol=header[0]===''||/^(role|type|label|category|item)$/.test(header[0]);
+  // Named "name" column
+  const nameIdx=header.findIndex((h,i)=>i>0&&/^name$/.test(h));
+
+  const genericNames=['admin','administrator','host','handler','panelist','moderator',...getHandlerNamesArray().map(n=>n.toLowerCase())];
+  const seenNorm=new Set();
+  const result=[];
+  let idCounter=1;
+
+  for(let i=1;i<rows.length;i++){
+    const row=rows[i];
+    if(!row[msgIdx]) continue;
+    const msgText=row[msgIdx].trim();
+    if(!msgText||msgText.length<3) continue;
+
+    // Skip DON'T SEND rows
+    const mode=(modeIdx!==-1?(row[modeIdx]||''):'').replace(/['"]/g,'').trim();
+    if(/don.?t\s*send|do not send/i.test(mode)) continue;
+
+    // Skip draft/conditional rows (col 0 hint)
+    // Normalize col0 (may contain internal newlines from multi-line cells)
+    const col0Val=(row[0]||'').replace(/\s+/g,' ').trim();
+    // Skip refund draft rows (indicated in col0 OR name col)
+    const nameColVal=(nameIdx!==-1?(row[nameIdx]||''):'').replace(/['"]/g,'').trim();
+    if(/refund\s+draft/i.test(col0Val)||/refund\s+draft/i.test(nameColVal)) continue;
+
+    // Deduplicate by normalised content
+    const norm=msgText.toLowerCase().replace(/\s+/g,' ').trim();
+    if(seenNorm.has(norm)) continue;
+    seenNorm.add(norm);
+
+    // Snippet
+    const snippet=generateMandatorySnippet(msgText);
+    if(!snippet||snippet.length<5) continue;
+
+    // Label (priority: col0 → name col → message content)
+    let label='';
+    // col0: use as label unless it's a long "Send this when..." instruction
+    if(col0IsLabelCol&&col0Val&&col0Val.length>1&&col0Val.length<=50){
+      if(!/^send\s+this\s+when/i.test(col0Val)) label=col0Val;
+    }
+    if(!label&&nameIdx!==-1&&row[nameIdx]){
+      const nv=row[nameIdx].replace(/['"]/g,'').trim();
+      // Skip: generic names, comma-separated people lists (like "PRANAV, AYAN"), handler name
+      const isGeneric=genericNames.some(g=>nv.toLowerCase().includes(g));
+      const isPeopleList=nv.includes(',')&&nv===nv.toUpperCase(); // "PRANAV, AYAN" style
+      if(nv.length>2&&!isGeneric&&!isPeopleList) label=nv;
+    }
+    if(!label||label.length<2){
+      const urlDom=msgText.match(/^https?:\/\/([^/\s]+)/);
+      if(urlDom) label=urlDom[1];
+      else{
+        const stripped=msgText
+          .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}]/gu,'')
+          .replace(/^[^a-zA-Z0-9']+/,'').replace(/\s+/g,' ').trim();
+        label=stripped.substring(0,45)+(stripped.length>45?'\u2026':'');
+      }
+    }
+
+    // Timing: prefer mode col time, else col0 time
+    let timing='During session';
+    const timeFromMode=mode.match(/\d{1,2}[:.]\d{2}\s*(AM|PM)?/i);
+    if(timeFromMode) timing=timeFromMode[0];
+    else{
+      const t2=col0Val.match(/\d{1,2}[:.]\d{2}\s*(AM|PM)?/i);
+      if(t2) timing=t2[0];
+    }
+
+    result.push({id:idCounter++,cat:autoCategorizeMandatory(msgText),label:label||snippet.substring(0,30),snippet,timing});
+  }
+  return result.length>0?result:null;
+}
+
+function loadMandatoryCSV(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const parsed=parseMandatoryCSV(ev.target.result);
+    if(!parsed||!parsed.length){
+      alert('Could not parse mandatory messages CSV.\n\nMake sure the file has a column containing the message text, and rows for each mandatory message.');
+      return;
+    }
+    customMandatoryMsgs=parsed;
+    updateMandatorySourceUI();
+    // Re-run check if savechat is already loaded
+    if(allChats.length){checkMandatory();renderMandatoryView();}
+    else{renderMandatoryView();}
+  };
+  reader.readAsText(file,'UTF-8');
+  // Reset input so same file can be re-uploaded
+  e.target.value='';
+}
+
+function resetToDefaultMandatory(){
+  customMandatoryMsgs=null;
+  updateMandatorySourceUI();
+  if(allChats.length){checkMandatory();renderMandatoryView();}
+  else{renderMandatoryView();}
+}
+
+function updateMandatorySourceUI(){
+  const badge=document.getElementById('mandSourceBadge');
+  const resetBtn=document.getElementById('mandResetBtn');
+  const total=document.getElementById('mandTotal');
+  const active=getActiveMandatoryMsgs();
+  if(customMandatoryMsgs){
+    badge.className='mand-source-badge mand-source-custom';
+    badge.textContent='Custom CSV — '+active.length+' messages';
+    if(resetBtn)resetBtn.style.display='';
+  } else {
+    badge.className='mand-source-badge mand-source-default';
+    badge.textContent='Default — '+active.length+' messages (auto-updated from CSV)';
+    if(resetBtn)resetBtn.style.display='none';
+  }
+  if(total)total.textContent=active.length;
+}
+
+// ── Default mandatory messages (built-in, 27 entries) ────────────────
+// n8n returned (Tool 11). Success Stories Playlist added. Kimi excluded.
+//
+// KEYWORD MATCHING PHILOSOPHY:
+//  • For stable tool URLs  → match the domain/path (won't change session-to-session)
+//  • For dynamic URLs      → match stable text keywords, not the variable part
+//    e.g. AICA pitch URL changes every session → match "Join the Certified Al Career Accelerator"
+//         Payment URL changes → match "Still facing Payment issues"
+//         Certificate UUID changes → match "certx.in/submit" (path prefix is stable)
+//         Referral link has two variants → multi-snippet array covers both
+//  • `excl` blocks a sub-string that distinguishes the wrong message type
+//    e.g. ChatGPT plain URL vs Custom GPT paths → excl:'chatgpt.com/g/'
+const DEFAULT_MANDATORY_MSGS = [
+  // ── Warmup / Session Start ──────────────────────────────────────────
+  {id:1,  cat:'Warmup / Start',    label:'Warmup Message',
+   snippet:'kicking off the session right at',
+   timing:'10:50 AM & 10:55 AM'},
+  {id:2,  cat:'Warmup / Start',    label:'Welcome Message',
+   snippet:'Welcome to Be10X AI Tools Workshop Everyone',
+   timing:'Exact 11:00 AM'},
+  // ── Tech Support ────────────────────────────────────────────────────
+  {id:3,  cat:'Tech Support',      label:'Blur Video Fix',
+   snippet:'experiencing blur video',
+   timing:'11:10 AM & 11:35 AM'},
+  {id:4,  cat:'Tech Support',      label:'Audio Fix',
+   snippet:'facing audio issues, please rejoin',
+   timing:'11:30 AM & 11:45 AM'},
+  // ── Tool Links ──────────────────────────────────────────────────────
+  {id:5,  cat:'Tool Link',         label:'Tool 1 – NotebookLM',
+   snippet:'notebooklm.google.com',
+   timing:'Tool 1'},
+  {id:6,  cat:'Tool Link',         label:'Tool 2 – WisprFlow',
+   snippet:'wisprflow.ai',
+   timing:'Tool 2'},
+  {id:7,  cat:'Tool Link',         label:'Tool 3 – Stitch',
+   snippet:'stitch.withgoogle.com',
+   timing:'Tool 3'},
+  {id:8,  cat:'Tool Link',         label:'Tool 4 – AI Studio',
+   snippet:'aistudio.google.com',
+   timing:'Tool 4'},
+  // Tool 5: plain ChatGPT URL — excl blocks custom-GPT /g/ paths (ATS, Samantha etc.)
+  {id:9,  cat:'Tool Link',         label:'Tool 5 – ChatGPT',
+   snippet:'chatgpt.com',
+   excl:'chatgpt.com/g/',
+   timing:'Tool 5'},
+  {id:10, cat:'Tool Link',         label:'Tool 6 – Gemini',
+   snippet:'gemini.google.com',
+   timing:'Tool 6'},
+  // Tool 7 & Tool 12 are both claude.ai — deduplicated to one entry
+  {id:11, cat:'Tool Link',         label:'Tool 7/12 – Claude AI',
+   snippet:'claude.ai',
+   timing:'Tool 7 & 12 (deduped)'},
+  {id:12, cat:'Tool Link',         label:'Tool 8 – Julius AI',
+   snippet:'julius.ai',
+   timing:'Tool 8'},
+  // ── Engagement ──────────────────────────────────────────────────────
+  {id:13, cat:'Engagement',        label:'Stay Till End Alert',
+   snippet:'Important Information. Please ensure you stay until the end',
+   timing:'After Gemini'},
+  // ── Tool Links continued ─────────────────────────────────────────────
+  {id:14, cat:'Tool Link',         label:'Tool 9 – ATS Resume GPT',
+   snippet:'be10x-ats-resume-generator',
+   timing:'Tool 9'},
+  {id:15, cat:'Tool Link',         label:'Tool 10 – Perplexity Comet',
+   snippet:'perplexity.ai/comet',
+   timing:'Tool 10'},
+  // n8n returned to the lineup as Tool 11
+  {id:16, cat:'Tool Link',         label:'Tool 11 – n8n',
+   snippet:'n8n.io',
+   timing:'Tool 11'},
+  {id:17, cat:'Tool Link',         label:'Samantha Chatbot',
+   snippet:'g-68b2bfda04c481919dfb43b5f0796648-samantha',
+   timing:'Samantha session'},
+  // ── Engagement ──────────────────────────────────────────────────────
+  // Success Stories Playlist — new addition. Multi-snippet covers common
+  // link formats (YouTube playlist / be10x short links). Edit inline (✎)
+  // if the session uses a different URL.
+  {id:18, cat:'Engagement',        label:'Success Stories Playlist',
+   snippet:'success-stories',
+   snippets:['success-stories','success-story','successstories','youtube.com/playlist','youtu.be','be10x.in/success','link.be10x.in/success'],
+   timing:'During session'},
+  // Referral Tracker: URL alternates between two formats across sessions
+  {id:19, cat:'Engagement',        label:'Referral Program Tracker',
+   snippet:'ai-tools-workshop-ref',
+   snippets:['ai-tools-workshop-ref','ai-share','be10x.com/ai-share','be10x.in/ai-tools-workshop-ref'],
+   timing:'~2:25 PM'},
+  // ── Sales / AICA ────────────────────────────────────────────────────
+  // AICA Pitch: payment URL changes every session → match stable headline text
+  {id:20, cat:'Sales / AICA',      label:'AICA Pitch + Payment Link',
+   snippet:'Join the Certified Al Career Accelerator',
+   timing:'~1:37 PM'},
+  // Alt Payment Link: text constant, URL changes → match text keyword
+  {id:21, cat:'Sales / AICA',      label:'Alternative Payment Link',
+   snippet:'Still facing Payment issues',
+   timing:'After AICA pitch'},
+  // ── Closing ─────────────────────────────────────────────────────────
+  {id:22, cat:'Closing',           label:'Free Bonuses Link',
+   snippet:'be10xbonuses',
+   timing:'After bonuses reveal'},
+  // Certificate Link: UUID changes per session → match stable path prefix
+  {id:23, cat:'Closing',           label:'Certificate Link',
+   snippet:'certx.in/submit',
+   timing:'End of session'},
+  {id:24, cat:'Closing',           label:'Feedback / Review Link',
+   snippet:'workshop-review',
+   timing:'2:25 PM'},
+  {id:25, cat:'Closing',           label:'WhatsApp AI Channel',
+   snippet:'whatsapp.com/channel',
+   timing:'After review link'},
+  // LinkedIn post: "Tag @be10x" is always in the message body
+  {id:26, cat:'Closing',           label:'LinkedIn Certificate Post',
+   snippet:'Tag @be10x',
+   timing:'End of session'},
+  // LMS App Download Link: two URL variants (FOR EXOTIC vs FOR MAIN) — either one counts
+  {id:27, cat:'Closing',           label:'LMS App Download Link',
+   snippet:'Be10X-App-Download',
+   snippets:['Be10X-App-Download','download-Be10X-App'],
+   timing:'End of session'},
+];
+
+let mandatoryResults = [];       // populated by checkMandatory()
+let mandatorySnippetOverrides={};// id → custom snippet (user-edited)
+
+// ═══════════════════════════════════════════
+//  MANDATORY MESSAGE CHECK
+// ═══════════════════════════════════════════
+// Returns the effective snippet(s) for a mandatory message
+// Priority: user override > multi-snippet array > single snippet
+function getEffectiveSnippets(m){
+  if(mandatorySnippetOverrides[m.id]) return [mandatorySnippetOverrides[m.id]];
+  if(m.snippets&&m.snippets.length) return m.snippets;
+  return [m.snippet];
+}
+
+function getEffectiveSnippetDisplay(m){
+  if(mandatorySnippetOverrides[m.id]) return mandatorySnippetOverrides[m.id];
+  if(m.snippets&&m.snippets.length) return m.snippets[0]+' (+'+( m.snippets.length-1)+' more)';
+  return m.snippet;
+}
+
+function msgMatchesMandatory(chatText, m) {
+  const lo = chatText.toLowerCase();
+  // Match if ANY of the effective snippets is found in the chat
+  if (!getEffectiveSnippets(m).some(s => lo.includes(s.toLowerCase()))) return false;
+  if (m.excl && lo.includes(m.excl.toLowerCase())) return false;
+  return true;
+}
+
+function checkMandatory() {
+  // Broadcast messages = handler → Everyone OR Hosts and panelists
+  const broadcasts = allChats.filter(r => {
+    if (!isHandler(r.admin)) return false;
+    const rt = r.replyTo.toLowerCase();
+    return rt === 'everyone' || rt === 'hosts and panelists' || rt === 'all';
+  });
+
+  mandatoryResults = getActiveMandatoryMsgs().map(m => {
+    const matches = broadcasts.filter(r => msgMatchesMandatory(r.chat, m));
+    return {
+      ...m,
+      sent: matches.length > 0,
+      timesSent: matches.length,
+      sentAt: matches.map(r => r.time)
+    };
+  });
+
+  // update nav count
+  const sentCount = mandatoryResults.filter(r => r.sent).length;
+  document.getElementById('nc-mandatory').textContent = sentCount + '/' + getActiveMandatoryMsgs().length;
+  document.getElementById('tag-mandatory').textContent = sentCount + ' of ' + getActiveMandatoryMsgs().length + ' sent';
+}
+
+// ═══════════════════════════════════════════
+//  RENDER MANDATORY TABLE
+// ═══════════════════════════════════════════
+const CAT_COLORS = {
+  'Warmup / Start': '#6366f1',
+  'Tech Support':   '#22d3ee',
+  'Tool Link':      '#10b981',
+  'Engagement':     '#f59e0b',
+  'Sales / AICA':   '#ec4899',
+  'Closing':        '#a78bfa',
+};
+
+function renderMandatoryView() {
+  if (!mandatoryResults.length) {
+    document.getElementById('mandatoryTbody').innerHTML =
+      '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-txt">No savechat loaded</div><div class="empty-sub2">Upload a Zoom savechat to check mandatory messages</div></div></td></tr>';
+    return;
+  }
+
+  const total = getActiveMandatoryMsgs().length;
+  const sentCount = mandatoryResults.filter(r => r.sent).length;
+  const pct = Math.round((sentCount / total) * 100);
+
+  // Update progress card
+  document.getElementById('mandBig').textContent = sentCount;
+  const mtEl=document.getElementById('mandTotal');
+  if(mtEl) mtEl.textContent=total;
+  document.getElementById('mandProgressBar').style.width = pct + '%';
+  document.getElementById('mand-sent-cnt').textContent = sentCount;
+  document.getElementById('mand-miss-cnt').textContent = total - sentCount;
+  document.getElementById('mand-pct').textContent = pct + '%';
+  document.getElementById('tag-mandatory').textContent = sentCount + ' of ' + total + ' sent';
+  document.getElementById('mand-handler-name').textContent = getHandlerName();
+  updateMandatorySourceUI();
+
+  document.getElementById('mandatoryTbody').innerHTML = mandatoryResults.map(r => {
+    const c = CAT_COLORS[r.cat] || '#6366f1';
+    const statusHtml = r.sent
+      ? `<span class="mand-sent">✅ Sent</span>`
+      : `<span class="mand-miss">❌ Missing</span>`;
+    const sentAtHtml = r.sent
+      ? r.sentAt.map(t => `<span class="mand-time-chip">${esc(t)}</span>`).join(' ')
+      : '<span style="color:var(--text3);font-size:11px;">—</span>';
+    const timesHtml = r.sent
+      ? `<span style="font-family:var(--mono);font-size:13px;color:${r.timesSent >= 2 ? 'var(--green)' : 'var(--text2)'};font-weight:600;">${r.timesSent}×</span>`
+      : `<span style="color:var(--text3);">0</span>`;
+    const rowBg = r.sent ? '' : 'background:rgba(239,68,68,0.04);';
+    // Snippet display — shows custom override (amber) or multi-snippet (cyan) or default
+    const hasOverride = !!mandatorySnippetOverrides[r.id];
+    const isMulti = !hasOverride && r.snippets && r.snippets.length > 1;
+    const snipClass = hasOverride ? 'mand-snippet-code custom' : isMulti ? 'mand-snippet-code multi' : 'mand-snippet-code';
+    const snipDisplay = esc(getEffectiveSnippetDisplay({...r}));
+    const snippetHtml = `<div class="mand-snippet-edit">
+      <span class="${snipClass}" id="snip-display-${r.id}" title="${hasOverride?'Custom (edited)':isMulti?'Multiple patterns':'Default'}: ${snipDisplay}">${snipDisplay}</span>
+      <button class="mand-edit-btn" onclick="editSnippet(${r.id})" title="Edit match keyword for this session">✎</button>
+      ${hasOverride?`<button class="mand-edit-btn" onclick="resetSnippet(${r.id})" title="Reset to default" style="color:var(--amber);font-size:11px;">↺</button>`:''}
+    </div>`;
+    return `<tr style="${rowBg}">
+      <td class="td-time">${r.id}</td>
+      <td><span class="cat-tag" style="background:${c}18;color:${c};border:1px solid ${c}30;">${esc(r.cat)}</span></td>
+      <td>
+        <div style="font-weight:600;font-size:13px;">${esc(r.label)}</div>
+        ${snippetHtml}
+      </td>
+      <td><span class="mand-time-chip">${esc(r.timing)}</span></td>
+      <td>${statusHtml}</td>
+      <td>${sentAtHtml}</td>
+      <td style="text-align:center;">${timesHtml}</td>
+    </tr>`;
+  }).join('');
+}
+// ── Mandatory message snippet editing ────────────────────────────────────
+function editSnippet(id){
+  const m=MANDATORY_MSGS.find(x=>x.id===id);
+  if(!m) return;
+  const curVal=mandatorySnippetOverrides[id]||(m.snippets?m.snippets[0]:m.snippet);
+  const dispEl=document.getElementById('snip-display-'+id);
+  if(!dispEl) return;
+  // Replace the span with an inline input
+  const parent=dispEl.parentElement;
+  parent.innerHTML=`<input class="inp mand-snippet-inp" id="snip-inp-${id}"
+    value="${esc(curVal)}"
+    placeholder="Enter keyword or URL fragment…"
+    onblur="saveSnippet(${id},this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){resetSnippetEdit(${id})}"
+    onclick="event.stopPropagation()"/>`;
+  setTimeout(()=>{const inp=document.getElementById('snip-inp-'+id);if(inp)inp.focus();},50);
+}
+
+function saveSnippet(id,newVal){
+  const trimmed=newVal.trim();
+  if(trimmed){
+    mandatorySnippetOverrides[id]=trimmed;
+  } else {
+    delete mandatorySnippetOverrides[id];
+  }
+  if(allChats.length){checkMandatory();renderMandatoryView();}
+  else renderMandatoryView(); // just re-render to show updated snippet display
+}
+
+function resetSnippet(id){
+  delete mandatorySnippetOverrides[id];
+  if(allChats.length){checkMandatory();renderMandatoryView();}
+  else renderMandatoryView();
+}
+
+function resetSnippetEdit(id){
+  // Cancel edit without saving
+  if(allChats.length){checkMandatory();renderMandatoryView();}
+  else renderMandatoryView();
+}
+
+function avatarColor(n){let h=0;for(let i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))%ACOLORS.length;return ACOLORS[h];}
+function initials(n){const p=n.split(' ');return((p[0]?.[0]||'')+(p[1]?.[0]||'')).toUpperCase();}
+
+function switchChatTab(mode){
+  chatTabMode=mode;chatPage=1;
+  document.getElementById('tab-clean').classList.toggle('active',mode==='clean');
+  document.getElementById('tab-spam').classList.toggle('active',mode==='spam');
+  const spamCol=document.getElementById('spamColHead');
+  if(spamCol) spamCol.style.display=mode==='spam'?'':'none';
+  renderChatTable();
+}
+
+function renderChatTable(){
+  const q=(document.getElementById('chatSearch')?.value||'').toLowerCase();
+  const norm=t=>t.toLowerCase().trim().replace(/\s+/g,' ');
+
+  if(chatTabMode==='spam'){
+    // Spam tab: show only the detected spam messages (for reference)
+    const spamSet=new Set(spamChats.map(r=>r.time+'|'+r.admin+'|'+norm(r.chat)));
+    const fil=spamChats.filter(r=>!q||r.chat.toLowerCase().includes(q)||r.admin.toLowerCase().includes(q));
+    const tot=fil.length;
+    chatPage=Math.min(chatPage,Math.max(1,Math.ceil(tot/PAGE)));
+    const sl=fil.slice((chatPage-1)*PAGE,chatPage*PAGE);
+    document.getElementById('chatTbody').innerHTML=sl.map(r=>{
+      const c=avatarColor(r.admin);
+      // Find first occurrence in allChats (the kept one)
+      const orig=allChats.find(k=>k.admin===r.admin&&norm(k.chat)===norm(r.chat));
+      const origChip=orig?`<span class="mand-time-chip" title="First sent at (kept)">1st @ ${esc(orig.time)}</span>`:'';
+      return`<tr class="spam-row">
+        <td class="td-time">${esc(r.time)}</td>
+        <td class="td-name"><span class="avatar" style="background:${c}22;color:${c}">${initials(r.admin)}</span>${esc(r.admin)}</td>
+        <td class="td-to">${esc(r.replyTo)}</td>
+        <td class="td-chat">${esc(r.chat)}</td>
+        <td style="white-space:nowrap;"><span class="badge-spam">SPAM</span> ${origChip}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('chatPageInfo').textContent=`${Math.min((chatPage-1)*PAGE+1,Math.max(1,tot))}–${Math.min(chatPage*PAGE,tot)} of ${tot.toLocaleString()} spam`;
+  } else {
+    // All Messages tab: show EVERY message (full chat, including spam)
+    const fil=allChats.filter(r=>!q||r.chat.toLowerCase().includes(q)||r.admin.toLowerCase().includes(q));
+    const tot=fil.length;
+    chatPage=Math.min(chatPage,Math.max(1,Math.ceil(tot/PAGE)));
+    const sl=fil.slice((chatPage-1)*PAGE,chatPage*PAGE);
+    // Build a lookup set for quick spam membership check
+    const spamKey=new Set(spamChats.map(r=>r.time+'|'+r.admin.toLowerCase()+'|'+norm(r.chat)));
+    document.getElementById('chatTbody').innerHTML=sl.map(r=>{
+      const c=avatarColor(r.admin);
+      const isSpam=spamKey.has(r.time+'|'+r.admin.toLowerCase()+'|'+norm(r.chat));
+      const spamMark=isSpam?'<span class="badge-spam" style="margin-left:6px;opacity:0.6;">SPAM</span>':'';
+      return`<tr>
+        <td class="td-time">${esc(r.time)}</td>
+        <td class="td-name"><span class="avatar" style="background:${c}22;color:${c}">${initials(r.admin)}</span>${esc(r.admin)}</td>
+        <td class="td-to">${esc(r.replyTo)}</td>
+        <td class="td-chat">${esc(r.chat)}${spamMark}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('chatPageInfo').textContent=`${Math.min((chatPage-1)*PAGE+1,Math.max(1,tot))}–${Math.min(chatPage*PAGE,tot)} of ${tot.toLocaleString()} total`;
+  }
+
+  document.getElementById('tag-chat').textContent=allChats.length.toLocaleString()+' total · '+spamChats.length.toLocaleString()+' spam marked';
+  const tabSpamCount=document.getElementById('tab-spam-count');
+  if(tabSpamCount) tabSpamCount.textContent=spamChats.length?'('+spamChats.length+')':'';
+}
+
+function renderIssueTable(){
+  const q=(document.getElementById('issueSearch')?.value||'').toLowerCase();
+  const f=document.getElementById('issueFilter')?.value||'all';
+  const fil=allIssues.filter(r=>(f==='all'||r.category===f)&&(!q||r.chat.toLowerCase().includes(q)||r.admin.toLowerCase().includes(q)));
+  const tot=fil.length;issuePage=Math.min(issuePage,Math.max(1,Math.ceil(tot/PAGE)));
+  const sl=fil.slice((issuePage-1)*PAGE,issuePage*PAGE);
+  const included=allIssues.filter(r=>r.include).length;
+  document.getElementById('tag-issues').textContent=included+' issues included';
+  document.getElementById('tag-issues-count').textContent=tot+' showing';
+  document.getElementById('issueTbody').innerHTML=!fil.length?`<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-txt">No issues found</div><div class="empty-sub2">Try changing the filter or search term</div></div></td></tr>`:sl.map(r=>{const gi=allIssues.indexOf(r);const c=avatarColor(r.admin);return`<tr><td class="td-time">${esc(r.time)}</td><td class="td-name"><span class="avatar" style="background:${c}22;color:${c}">${initials(r.admin)}</span>${esc(r.admin)}</td><td class="td-to">${esc(r.replyTo)}</td><td class="td-chat">${esc(r.chat)}</td><td><span class="badge ${r.badge}">${esc(r.catName)}</span></td><td><div class="toggle-wrap" onclick="toggleIssue(${gi})"><div class="toggle ${r.include?'on':''}"></div></div></td></tr>`;}).join('');
+  document.getElementById('issuePageInfo').textContent=`${Math.min((issuePage-1)*PAGE+1,Math.max(1,tot))}–${Math.min(issuePage*PAGE,tot)} of ${tot.toLocaleString()}`;
+  buildCatGrid();
+}
+
+function renderHandlerTable(){
+  const rows=handlerRows,tot=rows.length;
+  handlerPage=Math.min(handlerPage,Math.max(1,Math.ceil(tot/PAGE)));
+  const sl=rows.slice((handlerPage-1)*PAGE,handlerPage*PAGE);
+  document.getElementById('handlerTbody').innerHTML=sl.map(r=>`<tr><td class="td-time">${esc(r.time)}</td><td><span class="handler-chip"><span class="handler-dot"></span>${esc(r.admin)}</span></td><td class="td-name">${esc(r.replyTo.replace(', Hosts and panelists',''))}</td><td class="td-chat">${esc(r.chat)}</td></tr>`).join('');
+  document.getElementById('handlerPageInfo').textContent=`${Math.min((handlerPage-1)*PAGE+1,Math.max(1,tot))}–${Math.min(handlerPage*PAGE,tot)} of ${tot.toLocaleString()}`;
+  document.getElementById('tag-handler').textContent=tot.toLocaleString()+' replies';
+}
+
+function buildCatGrid(){
+  const el=document.getElementById('catGrid');if(!el)return;
+  const ti=Math.max(allIssues.length,1);
+  el.innerHTML=CATEGORIES.map(cat=>{
+    const inc=allIssues.filter(r=>r.category===cat.id&&r.include).length;
+    const tot=allIssues.filter(r=>r.category===cat.id).length;
+    const pct=Math.round((tot/ti)*100);
+    return`<div class="cat-card ${cat.ccls}" onclick="filterByCat('${cat.id}')"><div class="cat-name">${cat.name}</div><div class="cat-kw">${cat.keywords.slice(0,4).join(', ')}…</div><div class="cat-count-row"><span class="cat-num">${inc}</span><span class="cat-total">/ ${tot} flagged</span></div><div class="cat-bar"><div class="cat-bar-fill" style="width:${pct}%"></div></div></div>`;
+  }).join('');
+}
+
+function filterByCat(id){document.getElementById('issueFilter').value=id;renderIssueTable();}
+function populateIssueFilter(){const s=document.getElementById('issueFilter');s.innerHTML='<option value="all">All Categories</option>';CATEGORIES.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;s.appendChild(o);});}
+
+function renderConfigCards(){
+  document.getElementById('configCards').innerHTML=CATEGORIES.map((cat,i)=>`<div class="builder-card"><div class="builder-card-head"><span class="badge ${cat.badge}">${cat.name}</span><span style="font-size:11px;color:var(--text3);font-family:var(--mono);">id: ${cat.id}</span><div style="margin-left:auto;"><button class="btn btn-secondary btn-xs" onclick="removeCat(${i})">Remove</button></div></div><div class="field-label">Keywords</div><div class="tags-wrap">${cat.keywords.map((kw,ki)=>`<span class="kw-tag">${kw}<span class="kw-rm" onclick="removeKw(${i},${ki})">×</span></span>`).join('')}</div><div style="margin-top:10px;display:flex;gap:8px;"><input class="inp inp-sm" id="kw-add-${i}" placeholder="Add keyword…" style="flex:1;" onkeydown="if(event.key==='Enter')addKwToCat(${i})"/><button class="btn btn-secondary btn-xs" onclick="addKwToCat(${i})">+ Add</button></div></div>`).join('');
+}
+function removeKw(ci,ki){CATEGORIES[ci].keywords.splice(ki,1);renderConfigCards();}
+function addKwToCat(ci){const inp=document.getElementById(`kw-add-${ci}`);const v=inp.value.trim();if(!v)return;CATEGORIES[ci].keywords.push(v);inp.value='';renderConfigCards();}
+function removeCat(i){if(!confirm(`Remove category "${CATEGORIES[i].name}"?`))return;CATEGORIES.splice(i,1);renderConfigCards();populateIssueFilter();}
+function addKwTag(e){if(e.key!=='Enter'&&e.key!==',')return;e.preventDefault();const inp=document.getElementById('newCatKwInput');const v=inp.value.replace(',','').trim();if(!v||newCatKws.includes(v))return;newCatKws.push(v);inp.value='';renderNewTags();}
+function renderNewTags(){document.getElementById('newCatTags').innerHTML=newCatKws.map((kw,i)=>`<span class="kw-tag">${kw}<span class="kw-rm" onclick="newCatKws.splice(${i},1);renderNewTags()">×</span></span>`).join('');}
+function addCustomCategory(){const name=document.getElementById('newCatName').value.trim();const badge=document.getElementById('newCatColor').value;if(!name||!newCatKws.length){alert('Please add a name and at least one keyword.');return;}const id=name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');CATEGORIES.push({id,name,badge,ccls:'cc-green',keywords:[...newCatKws]});clearNewCat();renderConfigCards();populateIssueFilter();alert(`Category "${name}" added! Click Re-analyze to apply.`);}
+function clearNewCat(){document.getElementById('newCatName').value='';newCatKws=[];renderNewTags();}
+function reanalyze(){allIssues=detectIssues(allChats);updateNavCounts();buildCatGrid();populateIssueFilter();renderIssueTable();}
+
+function updateStats(){
+  const uniq=new Set(allChats.map(r=>r.admin)).size;
+  const cust=allChats.filter(r=>!isHandler(r.admin)).length;
+  const issCnt=allIssues.filter(r=>r.include).length;
+  const hRep=computeHandlerRows().length;
+  const spamSenderSet=new Set(spamChats.map(r=>r.admin));
+
+  // Stats row (5 cards — grid becomes repeat(5,1fr))
+  const sr=document.getElementById('statsRow');
+  if(sr) sr.style.gridTemplateColumns='repeat(5,1fr)';
+  document.getElementById('statsRow').innerHTML=`
+    <div class="stat-card sc-blue"><div class="stat-ico">💬</div><div class="stat-val">${allChats.length.toLocaleString()}</div><div class="stat-lbl">Total Chats</div><div class="stat-sub2">${uniq.toLocaleString()} unique senders</div></div>
+    <div class="stat-card sc-cyan"><div class="stat-ico">👥</div><div class="stat-val">${cust.toLocaleString()}</div><div class="stat-lbl">Customer Chats</div><div class="stat-sub2">Handler excluded</div></div>
+    <div class="stat-card sc-red"><div class="stat-ico">⚠️</div><div class="stat-val">${issCnt.toLocaleString()}</div><div class="stat-lbl">Issues Flagged</div><div class="stat-sub2">Across ${CATEGORIES.length} categories</div></div>
+    <div class="stat-card sc-green"><div class="stat-ico">💬</div><div class="stat-val">${hRep.toLocaleString()}</div><div class="stat-lbl">Handler Replies</div><div class="stat-sub2">Personal replies only</div></div>
+    <div class="stat-card sc-orange"><div class="stat-ico">🧹</div><div class="stat-val">${spamChats.length.toLocaleString()}</div><div class="stat-lbl">Spam Removed</div><div class="stat-sub2">${spamSenderSet.size} senders</div></div>`;
+
+  // Update spam banner
+  const banner=document.getElementById('spamBanner');
+  if(banner){
+    banner.style.display=spamChats.length?'flex':'none';
+    document.getElementById('spamBannerCount').textContent=spamChats.length.toLocaleString();
+    document.getElementById('spamBannerSenders').textContent=spamSenderSet.size.toLocaleString();
+  }
+}
+function updateNavCounts(){document.getElementById('nc-chat').textContent=allChats.length.toLocaleString();document.getElementById('nc-issues').textContent=allIssues.filter(r=>r.include).length;document.getElementById('nc-handler').textContent=computeHandlerRows().length;}
+function changePage(v,d){if(v==='chat'){chatPage=Math.max(1,chatPage+d);renderChatTable();}else if(v==='issue'){issuePage=Math.max(1,issuePage+d);renderIssueTable();}else if(v==='handler'){handlerPage=Math.max(1,handlerPage+d);renderHandlerTable();}}
+function toggleIssue(idx){allIssues[idx].include=!allIssues[idx].include;updateNavCounts();renderIssueTable();}
+
+function exportXLSX(){
+  if(!allChats.length){alert('No data to export.');return;}
+  const wb=XLSX.utils.book_new();
+  // Total Chat = ALL messages, with Issue Category + Is Issue? columns inline.
+  // No separate Total Issues sheet — filter by 'Is Issue?' = 1 in Excel instead.
+  // Lookup: (time|admin|chat) → issue category for included, non-handler issues
+  const issueLookup={};
+  allIssues.filter(r=>r.include&&!isHandler(r.admin)).forEach(r=>{
+    issueLookup[r.time+'|'+r.admin+'|'+r.chat]=r.catName;
+  });
+  const cd=[['Time','Admin','Replied To','Chat','Issue Category','Is Issue?']];
+  // null (not '') for non-issue rows → SheetJS creates NO cell at all,
+  // so the cells are truly blank and Ctrl+Down jumps to the next issue.
+  allChats.forEach(r=>{
+    const cat=issueLookup[r.time+'|'+r.admin+'|'+r.chat]||null;
+    cd.push([r.time,r.admin,r.replyTo,r.chat,cat,cat?1:null]);
+  });
+  const wsC=XLSX.utils.aoa_to_sheet(cd);
+  wsC['!cols']=[{wch:10},{wch:24},{wch:24},{wch:58},{wch:20},{wch:9}];
+  XLSX.utils.book_append_sheet(wb,wsC,'Total Chat');
+  const hd=[['Time','Handler','Replied To','Message']];computeHandlerRows().forEach(r=>hd.push([r.time,r.admin,r.replyTo,r.chat]));
+  const wsH=XLSX.utils.aoa_to_sheet(hd);wsH['!cols']=[{wch:10},{wch:20},{wch:30},{wch:60}];XLSX.utils.book_append_sheet(wb,wsH,'Handler Replies');
+  // Sheet 4: Mandatory Messages
+  if(mandatoryResults.length){
+    const sentCnt=mandatoryResults.filter(r=>r.sent).length;
+    const pct=Math.round((sentCnt/getActiveMandatoryMsgs().length)*100);
+    const mData=[
+      ['Mandatory Messages Tracker — '+getHandlerName(),'','','','','',''],
+      ['Total','Sent','Missing','Completion %','','',''],
+      [getActiveMandatoryMsgs().length, sentCnt, getActiveMandatoryMsgs().length-sentCnt, pct+'%','','',''],
+      ['','','','','','',''],
+      ['#','Category','Message / Label','Required Timing','Status','Sent At','Times Sent'],
+    ];
+    mandatoryResults.forEach(r=>mData.push([
+      r.id, r.cat, r.label, r.timing,
+      r.sent?'✅ SENT':'❌ MISSING',
+      r.sentAt.join(', ')||'—',
+      r.timesSent
+    ]));
+    const wsM=XLSX.utils.aoa_to_sheet(mData);
+    wsM['!cols']=[{wch:4},{wch:16},{wch:28},{wch:24},{wch:12},{wch:20},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,wsM,'Mandatory Messages');
+  }
+  XLSX.writeFile(wb,'Zoom_Savechat_Analysis.xlsx');
+}
+
+function switchView(v){
+  ['upload','chat','issues','handler','config','mandatory'].forEach(n=>{
+    document.getElementById('view-'+n).style.display=n===v?'block':'none';
+    document.getElementById('nav-'+n)?.classList.toggle('active',n===v);
+  });
+  if(v==='config') renderConfigCards();
+  if(v==='mandatory') renderMandatoryView();
+}
+
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// Initialise on load
+window.addEventListener('DOMContentLoaded',()=>updateHandlerPills());
 </script>
 </body>
 </html>
